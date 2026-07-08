@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#1a3c5e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Operación Airbnb</title>
+<style>
+  :root{
+    --azul:#1a3c5e; --fondo:#f4f6f9; --carta:#ffffff; --texto:#22303e; --gris:#8a97a5;
+    --apt1:#e05d44; --apt2:#2e86de; --apt3:#28a765; --bloqueo:#c3ccd6; --directa-borde:#f5b400;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{margin:0; font-family:-apple-system,'Segoe UI',Roboto,sans-serif; background:var(--fondo); color:var(--texto); padding-bottom:74px;}
+  header{background:var(--azul); color:#fff; padding:12px 16px; position:sticky; top:0; z-index:20; display:flex; align-items:center; justify-content:space-between;}
+  header h1{font-size:17px; margin:0; font-weight:600;}
+  #estadoSync{font-size:11px; opacity:.85;}
+  main{padding:12px; max-width:560px; margin:0 auto;}
+  .carta{background:var(--carta); border-radius:12px; padding:12px; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,.07);}
+  /* Navegación inferior */
+  nav{position:fixed; bottom:0; left:0; right:0; background:#fff; border-top:1px solid #e3e8ee; display:flex; z-index:30; padding-bottom:env(safe-area-inset-bottom);}
+  nav button{flex:1; background:none; border:none; padding:9px 0 7px; font-size:10.5px; color:var(--gris); cursor:pointer;}
+  nav button .ico{display:block; font-size:20px; margin-bottom:1px;}
+  nav button.activo{color:var(--azul); font-weight:700;}
+  /* Calendario */
+  .barraMes{display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;}
+  .barraMes b{font-size:16px; text-transform:capitalize;}
+  .barraMes button{border:none; background:#e9eef4; border-radius:8px; width:38px; height:34px; font-size:17px; cursor:pointer; color:var(--azul);}
+  .leyenda{display:flex; flex-wrap:wrap; gap:8px 14px; font-size:11.5px; margin:6px 0 10px; color:#4a5866;}
+  .leyenda span{display:flex; align-items:center; gap:4px;}
+  .puntito{width:10px; height:10px; border-radius:3px; display:inline-block;}
+  table.cal{width:100%; border-collapse:collapse; table-layout:fixed;}
+  table.cal th{font-size:10.5px; color:var(--gris); font-weight:600; padding:2px 0;}
+  table.cal td{border:1px solid #edf1f5; vertical-align:top; height:52px; padding:1px; cursor:pointer;}
+  td .num{font-size:11px; padding:1px 3px; color:#57646f;}
+  td.hoy .num{background:var(--azul); color:#fff; border-radius:6px; display:inline-block;}
+  td.otroMes{opacity:.28;}
+  .barrita{height:9px; border-radius:2px; margin:1px 0; background:transparent;}
+  .b-res{opacity:1;}
+  .b-blq{background:repeating-linear-gradient(45deg,var(--bloqueo),var(--bloqueo) 3px,#e7ebf0 3px,#e7ebf0 6px) !important;}
+  .b-dir{outline:2px solid var(--directa-borde); outline-offset:-2px;}
+  /* Listas */
+  .fila{display:flex; align-items:center; gap:10px; padding:9px 4px; border-bottom:1px solid #f0f3f6;}
+  .fila:last-child{border-bottom:none;}
+  .chip{min-width:10px; width:10px; height:34px; border-radius:4px;}
+  .fila .info{flex:1; min-width:0;}
+  .fila .info b{font-size:14px; display:block;}
+  .fila .info small{color:var(--gris); font-size:12px;}
+  .etq{font-size:10.5px; font-weight:700; padding:3px 8px; border-radius:10px; white-space:nowrap;}
+  .etq.entrada{background:#e2f5ea; color:#1b7a45;}
+  .etq.salida{background:#fdeae6; color:#b6402a;}
+  .etq.hueco{background:#fff4d6; color:#8a6d00;}
+  h3.secc{font-size:13px; color:var(--gris); text-transform:uppercase; letter-spacing:.5px; margin:16px 4px 6px;}
+  .vacio{color:var(--gris); font-size:13.5px; text-align:center; padding:18px 6px;}
+  /* Stats */
+  table.stats{width:100%; border-collapse:collapse; font-size:13.5px;}
+  table.stats th{text-align:left; color:var(--gris); font-size:11.5px; padding:6px 4px; border-bottom:1px solid #e8edf2;}
+  table.stats td{padding:8px 4px; border-bottom:1px solid #f0f3f6;}
+  table.stats tr:last-child td{border-bottom:none; font-weight:700;}
+  /* Botones y formularios */
+  .btn{display:block; width:100%; padding:12px; border:none; border-radius:10px; background:var(--azul); color:#fff; font-size:14.5px; font-weight:600; cursor:pointer; margin-top:10px;}
+  .btn.sec{background:#e9eef4; color:var(--azul);}
+  label.campo{display:block; font-size:12px; color:var(--gris); margin-top:10px; font-weight:600;}
+  input[type=text], input[type=url], input[type=number]{width:100%; padding:10px; border:1px solid #d6dee6; border-radius:8px; font-size:13.5px; margin-top:3px; background:#fbfcfe;}
+  .nota-ayuda{font-size:12px; color:var(--gris); line-height:1.45; margin-top:6px;}
+  /* Hoja de detalle */
+  #velo{position:fixed; inset:0; background:rgba(15,25,35,.45); z-index:40; display:none;}
+  #hoja{position:fixed; left:0; right:0; bottom:-100%; background:#fff; border-radius:18px 18px 0 0; z-index:50; padding:16px 16px calc(20px + env(safe-area-inset-bottom)); transition:bottom .22s; max-height:75vh; overflow-y:auto;}
+  #hoja.abierta{bottom:0;}
+  #hoja h2{margin:0 0 10px; font-size:16px; text-transform:capitalize;}
+  .aviso{background:#fff8e1; border:1px solid #ffe08a; color:#7a5c00; font-size:12.5px; padding:8px 10px; border-radius:8px; margin-bottom:10px; display:none;}
+  #toast{position:fixed; bottom:86px; left:50%; transform:translateX(-50%); background:#22303e; color:#fff; font-size:13px; padding:9px 16px; border-radius:20px; z-index:60; display:none; max-width:88%; text-align:center;}
+</style>
+</head>
+<body>
+<header>
+  <h1>🏠 Operación Airbnb</h1>
+  <span id="estadoSync">—</span>
+</header>
+
+<main>
+  <div id="avisoSync" class="aviso"></div>
+
+  <!-- VISTA CALENDARIO -->
+  <section id="v-cal">
+    <div class="carta">
+      <div class="barraMes">
+        <button onclick="cambiarMes(-1)">‹</button>
+        <b id="tituloMes"></b>
+        <button onclick="cambiarMes(1)">›</button>
+      </div>
+      <div class="leyenda" id="leyenda"></div>
+      <table class="cal">
+        <thead><tr><th>L</th><th>M</th><th>X</th><th>J</th><th>V</th><th>S</th><th>D</th></tr></thead>
+        <tbody id="cuerpoCal"></tbody>
+      </table>
+      <div class="leyenda" style="margin-top:8px">
+        <span><span class="puntito b-blq" style="width:14px"></span> Bloqueado</span>
+        <span><span class="puntito" style="background:#fff; outline:2px solid var(--directa-borde); outline-offset:-2px; width:14px"></span> Reserva directa</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- VISTA LLEGADAS -->
+  <section id="v-lleg" style="display:none">
+    <div class="carta">
+      <h3 class="secc" style="margin-top:2px">Hospedados ahora</h3>
+      <div id="hospedados"></div>
+      <h3 class="secc">Próximos 14 días</h3>
+      <div id="movimientos"></div>
+      <button class="btn sec" onclick="copiarResumen()">📋 Copiar resumen semanal (WhatsApp)</button>
+    </div>
+  </section>
+
+  <!-- VISTA HUECOS -->
+  <section id="v-huecos" style="display:none">
+    <div class="carta">
+      <h3 class="secc" style="margin-top:2px">Noches libres entre reservas (próximos 90 días)</h3>
+      <div id="listaHuecos"></div>
+    </div>
+  </section>
+
+  <!-- VISTA STATS -->
+  <section id="v-stats" style="display:none">
+    <div class="carta">
+      <div class="barraMes">
+        <button onclick="cambiarMesStats(-1)">‹</button>
+        <b id="tituloMesStats"></b>
+        <button onclick="cambiarMesStats(1)">›</button>
+      </div>
+      <table class="stats">
+        <thead><tr><th>Apartamento</th><th>Noches</th><th>Ocupación</th><th>Ingresos</th></tr></thead>
+        <tbody id="cuerpoStats"></tbody>
+      </table>
+      <p class="nota-ayuda">Los ingresos se capturan tocando una reserva en el calendario. Se cuentan en el mes de la llegada y se guardan en este teléfono.</p>
+    </div>
+  </section>
+
+  <!-- VISTA AJUSTES -->
+  <section id="v-ajustes" style="display:none">
+    <div class="carta">
+      <h3 class="secc" style="margin-top:2px">Apartamentos</h3>
+      <div id="formApts"></div>
+      <label class="campo">Calendario de reservas directas (Google Calendar, dirección secreta iCal)</label>
+      <input type="url" id="inpDirecta" placeholder="https://calendar.google.com/calendar/ical/...basic.ics">
+      <p class="nota-ayuda">En el título de cada evento de Google Calendar empiece con el número del apartamento. Ejemplo: <b>“2 - Familia García”</b>. Cree los eventos como “todo el día”, del día de llegada al día de salida.</p>
+      <button class="btn" onclick="guardarAjustes()">Guardar cambios</button>
+      <button class="btn sec" onclick="sincronizar(true)">🔄 Actualizar ahora</button>
+      <button class="btn sec" onclick="copiarEnlaceCfg()">🔗 Copiar enlace de configuración (para compartir)</button>
+      <p class="nota-ayuda">El enlace de configuración incluye sus calendarios. Compártalo solo por un medio privado (WhatsApp) con su esposa: al abrirlo, su teléfono queda configurado automáticamente.</p>
+    </div>
+  </section>
+
+  <!-- CONFIGURACIÓN INICIAL -->
+  <section id="v-setup" style="display:none">
+    <div class="carta">
+      <h3 class="secc" style="margin-top:2px">Bienvenido 👋 Configuración inicial</h3>
+      <p class="nota-ayuda">Pegue los enlaces iCal de sus anuncios de Airbnb (Calendario → Disponibilidad → Exportar calendario). Puede dejar vacíos los que no use.</p>
+      <div id="formSetup"></div>
+      <button class="btn" onclick="guardarSetup()">Comenzar</button>
+    </div>
+  </section>
+</main>
+
+<nav id="navegacion">
+  <button data-v="cal" class="activo" onclick="irA('cal')"><span class="ico">📅</span>Calendario</button>
+  <button data-v="lleg" onclick="irA('lleg')"><span class="ico">🧳</span>Llegadas</button>
+  <button data-v="huecos" onclick="irA('huecos')"><span class="ico">✨</span>Huecos</button>
+  <button data-v="stats" onclick="irA('stats')"><span class="ico">📊</span>Stats</button>
+  <button data-v="ajustes" onclick="irA('ajustes')"><span class="ico">⚙️</span>Ajustes</button>
+</nav>
+
+<div id="velo" onclick="cerrarHoja()"></div>
+<div id="hoja"></div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+/* ================== ESTADO ================== */
+const COLORES = ["var(--apt1)","var(--apt2)","var(--apt3)"];
+let cfg = null;          // {apts:[{nombre,url}], directa:""}
+let eventos = [];        // {apt:0-2|-1, ini:"YYYY-MM-DD", fin:"YYYY-MM-DD", tipo:"res"|"blq"|"dir", titulo, uid}
+let mesVista = hoyStr().slice(0,7);
+let mesStats = hoyStr().slice(0,7);
+const LS = { cfg:"str_cfg", cache:"str_cache", extras:"str_extras" };
+
+function hoyStr(){ const d=new Date(); return fmt(d); }
+function fmt(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function aDate(s){ const [y,m,d]=s.split("-").map(Number); return new Date(y,m-1,d); }
+function sumaDias(s,n){ const d=aDate(s); d.setDate(d.getDate()+n); return fmt(d); }
+function nochesEntre(a,b){ return Math.round((aDate(b)-aDate(a))/86400000); }
+const MESES=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+const DIAS=["dom","lun","mar","mié","jue","vie","sáb"];
+function fechaBonita(s){ const d=aDate(s); return DIAS[d.getDay()]+" "+d.getDate()+" "+MESES[d.getMonth()].slice(0,3); }
+
+function extras(){ try{ return JSON.parse(localStorage.getItem(LS.extras))||{}; }catch(e){ return {}; } }
+function setExtra(k,v){ const e=extras(); e[k]=v; localStorage.setItem(LS.extras, JSON.stringify(e)); }
+
+/* ================== CONFIGURACIÓN ================== */
+function cargarCfg(){
+  // ¿Viene configuración en el enlace? (#cfg=...)
+  if(location.hash.startsWith("#cfg=")){
+    try{
+      const j = JSON.parse(decodeURIComponent(escape(atob(location.hash.slice(5)))));
+      if(j && j.apts){ localStorage.setItem(LS.cfg, JSON.stringify(j)); toast("Configuración cargada ✅"); }
+    }catch(e){ toast("El enlace de configuración no es válido"); }
+    history.replaceState(null,"",location.pathname+location.search);
+  }
+  try{ cfg = JSON.parse(localStorage.getItem(LS.cfg)); }catch(e){ cfg=null; }
+}
+
+function mostrarSetup(){
+  document.querySelectorAll("main > section").forEach(s=>s.style.display="none");
+  document.getElementById("navegacion").style.display="none";
+  document.getElementById("v-setup").style.display="";
+  let h="";
+  for(let i=0;i<3;i++){
+    h+=`<label class="campo">Nombre del apartamento ${i+1}</label>
+        <input type="text" id="su-n${i}" placeholder="Apto ${i+1}">
+        <label class="campo">Enlace iCal de Airbnb del apartamento ${i+1}</label>
+        <input type="url" id="su-u${i}" placeholder="https://www.airbnb.com/calendar/ical/...">`;
+  }
+  h+=`<label class="campo">Calendario de reservas directas (opcional, Google Calendar iCal)</label>
+      <input type="url" id="su-dir" placeholder="https://calendar.google.com/calendar/ical/...basic.ics">`;
+  document.getElementById("formSetup").innerHTML=h;
+}
+function guardarSetup(){
+  const apts=[];
+  for(let i=0;i<3;i++){
+    const u=document.getElementById("su-u"+i).value.trim();
+    const n=document.getElementById("su-n"+i).value.trim()||("Apto "+(i+1));
+    if(u) apts.push({nombre:n,url:u});
+  }
+  if(!apts.length){ toast("Agregue al menos un enlace iCal"); return; }
+  cfg={apts, directa:document.getElementById("su-dir").value.trim()};
+  localStorage.setItem(LS.cfg, JSON.stringify(cfg));
+  location.reload();
+}
+
+/* ================== DESCARGA iCAL ================== */
+const RELEVOS = [
+  u => "https://api.allorigins.win/get?url="+encodeURIComponent(u),          // JSON {contents}
+  u => "https://api.allorigins.win/raw?url="+encodeURIComponent(u),          // texto directo
+  u => "https://api.codetabs.com/v1/proxy?quest="+encodeURIComponent(u),     // texto directo
+  u => "https://corsproxy.io/?url="+encodeURIComponent(u)                    // texto directo
+];
+async function bajarICS(url){
+  let ultimoError=null;
+  for(const arma of RELEVOS){
+    try{
+      const ctl=new AbortController(); const t=setTimeout(()=>ctl.abort(),12000);
+      const r=await fetch(arma(url), {signal:ctl.signal});
+      clearTimeout(t);
+      if(!r.ok) throw new Error("HTTP "+r.status);
+      let texto=await r.text();
+      if(texto.trim().startsWith("{")){                    // respuesta JSON de allorigins/get
+        const j=JSON.parse(texto);
+        texto=j.contents||"";
+        if(texto.startsWith("data:")) texto=atob(texto.split(",")[1]); // a veces viene en base64
+      }
+      if(!texto.includes("BEGIN:VCALENDAR")) throw new Error("Respuesta sin calendario");
+      return texto;
+    }catch(e){ ultimoError=e; }
+  }
+  throw ultimoError||new Error("Sin conexión");
+}
+
+function parseICS(texto){
+  // desdoblar líneas largas (RFC 5545)
+  texto=texto.replace(/\r\n[ \t]/g,"").replace(/\n[ \t]/g,"");
+  const evs=[]; let cur=null;
+  for(const linea of texto.split(/\r?\n/)){
+    if(linea==="BEGIN:VEVENT"){ cur={}; continue; }
+    if(linea==="END:VEVENT"){ if(cur) evs.push(cur); cur=null; continue; }
+    if(!cur) continue;
+    const i=linea.indexOf(":"); if(i<0) continue;
+    const clave=linea.slice(0,i).split(";")[0];
+    const valor=linea.slice(i+1);
+    if(["DTSTART","DTEND","SUMMARY","UID","DESCRIPTION"].includes(clave)) cur[clave]=valor;
+  }
+  return evs.map(e=>{
+    const lee=v=>{ if(!v) return null; const m=v.match(/(\d{4})(\d{2})(\d{2})/); return m? m[1]+"-"+m[2]+"-"+m[3] : null; };
+    let ini=lee(e.DTSTART), fin=lee(e.DTEND);
+    if(ini && !fin) fin=sumaDias(ini,1);
+    if(ini && fin && fin<=ini) fin=sumaDias(ini,1);
+    return {ini, fin, titulo:e.SUMMARY||"", uid:e.UID||(e.SUMMARY+"|"+ini)};
+  }).filter(e=>e.ini&&e.fin);
+}
+
+async function sincronizar(manual){
+  if(!cfg) return;
+  document.getElementById("estadoSync").textContent="Actualizando…";
+  const nuevos=[]; const fallas=[];
+  // Airbnb por apartamento
+  for(let i=0;i<cfg.apts.length;i++){
+    try{
+      const evs=parseICS(await bajarICS(cfg.apts[i].url));
+      for(const e of evs){
+        const esBloqueo=/not available/i.test(e.titulo);
+        nuevos.push({apt:i, ini:e.ini, fin:e.fin, tipo:esBloqueo?"blq":"res",
+                     titulo:esBloqueo?"Bloqueado":"Reserva Airbnb", uid:"a"+i+"|"+e.uid});
+      }
+    }catch(err){ fallas.push(cfg.apts[i].nombre); }
+  }
+  // Reservas directas (Google Calendar)
+  if(cfg.directa){
+    try{
+      const evs=parseICS(await bajarICS(cfg.directa));
+      for(const e of evs){
+        let apt=-1; const m=e.titulo.match(/^\s*([1-9])\s*[-–.:]?\s*(.*)/);
+        if(m && Number(m[1])<=cfg.apts.length) apt=Number(m[1])-1;
+        nuevos.push({apt, ini:e.ini, fin:e.fin, tipo:"dir",
+                     titulo:(m?m[2]:e.titulo)||"Reserva directa", uid:"d|"+e.uid});
+      }
+    }catch(err){ fallas.push("Reservas directas"); }
+  }
+  const aviso=document.getElementById("avisoSync");
+  if(fallas.length && !nuevos.length){
+    // todo falló: usar copia guardada
+    const cache=JSON.parse(localStorage.getItem(LS.cache)||"null");
+    if(cache){ eventos=cache.eventos;
+      aviso.textContent="⚠️ No se pudo actualizar. Mostrando datos guardados del "+cache.fecha+".";
+      aviso.style.display="block";
+    } else { aviso.textContent="⚠️ No se pudo conectar. Revise su internet e intente de nuevo."; aviso.style.display="block"; }
+  } else {
+    eventos=nuevos;
+    localStorage.setItem(LS.cache, JSON.stringify({fecha:new Date().toLocaleString("es"), eventos}));
+    if(fallas.length){ aviso.textContent="⚠️ No se pudo actualizar: "+fallas.join(", ")+". El resto está al día."; aviso.style.display="block"; }
+    else aviso.style.display="none";
+  }
+  document.getElementById("estadoSync").textContent="✓ "+new Date().toLocaleTimeString("es",{hour:"2-digit",minute:"2-digit"});
+  if(manual) toast("Calendarios actualizados");
+  pintarTodo();
+}
+
+/* ================== UTILIDADES DE OCUPACIÓN ================== */
+// ¿Está ocupada la noche de la fecha f (f → f+1) en el apto i?
+function nocheOcupada(i,f){
+  for(const e of eventos){ if(e.apt===i && e.ini<=f && f<e.fin) return e; }
+  return null;
+}
+function eventosDe(i){ return eventos.filter(e=>e.apt===i).sort((a,b)=>a.ini<b.ini?-1:1); }
+
+/* ================== VISTA: CALENDARIO ================== */
+function pintarCalendario(){
+  const [y,m]=mesVista.split("-").map(Number);
+  document.getElementById("tituloMes").textContent=MESES[m-1]+" "+y;
+  document.getElementById("leyenda").innerHTML=cfg.apts.map((a,i)=>
+    `<span><span class="puntito" style="background:${COLORES[i]}"></span>${a.nombre}</span>`).join("");
+  const primero=new Date(y,m-1,1);
+  let inicio=new Date(primero); inicio.setDate(1-((primero.getDay()+6)%7)); // lunes
+  let html=""; const hoy=hoyStr();
+  for(let s=0;s<6;s++){
+    html+="<tr>";
+    for(let d=0;d<7;d++){
+      const f=fmt(inicio); const enMes=inicio.getMonth()===m-1;
+      let barras="";
+      for(let i=0;i<cfg.apts.length;i++){
+        const e=nocheOcupada(i,f);
+        if(!e){ barras+=`<div class="barrita"></div>`; continue; }
+        const cls=e.tipo==="blq"?"barrita b-blq":(e.tipo==="dir"?"barrita b-res b-dir":"barrita b-res");
+        const col=e.tipo==="blq"?"":`style="background:${COLORES[i]}"`;
+        barras+=`<div class="${cls}" ${col}></div>`;
+      }
+      html+=`<td class="${enMes?"":"otroMes"} ${f===hoy?"hoy":""}" onclick="abrirDia('${f}')"><span class="num">${inicio.getDate()}</span>${barras}</td>`;
+      inicio.setDate(inicio.getDate()+1);
+    }
+    html+="</tr>";
+    if(inicio.getMonth()!==m-1 && s>=3) break;
+  }
+  document.getElementById("cuerpoCal").innerHTML=html;
+}
+function cambiarMes(n){
+  let [y,m]=mesVista.split("-").map(Number); m+=n;
+  if(m<1){m=12;y--;} if(m>12){m=1;y++;}
+  mesVista=y+"-"+String(m).padStart(2,"0"); pintarCalendario();
+}
+
+function abrirDia(f){
+  let h=`<h2>${fechaBonita(f)} · ${aDate(f).getFullYear()}</h2>`;
+  cfg.apts.forEach((a,i)=>{
+    const e=nocheOcupada(i,f);
+    const entrada=eventos.find(x=>x.apt===i && x.ini===f && x.tipo!=="blq");
+    const salida =eventos.find(x=>x.apt===i && x.fin===f && x.tipo!=="blq");
+    let linea="";
+    if(entrada) linea+=`<span class="etq entrada">ENTRADA</span> `;
+    if(salida)  linea+=`<span class="etq salida">SALIDA</span> `;
+    let estado, extra="";
+    if(e){
+      const ex=extras()[e.uid]||{};
+      estado=e.tipo==="blq"?"Bloqueado":e.titulo+" ("+fechaBonita(e.ini)+" → "+fechaBonita(e.fin)+", "+nochesEntre(e.ini,e.fin)+" noches)";
+      if(e.tipo!=="blq"){
+        extra=`<small style="color:var(--gris)">${ex.ingreso?("💵 "+Number(ex.ingreso).toLocaleString("es")):"Sin ingreso capturado"}${ex.nota?(" · 📝 "+ex.nota):""}</small>
+               <div><button class="btn sec" style="margin-top:6px;padding:8px" onclick="editarExtra('${e.uid}')">✏️ Ingreso / nota</button></div>`;
+      }
+    } else estado="Libre esta noche";
+    h+=`<div class="fila"><div class="chip" style="background:${COLORES[i]}"></div>
+        <div class="info"><b>${a.nombre}</b><small>${estado}</small>${extra}</div>${linea}</div>`;
+  });
+  document.getElementById("hoja").innerHTML=h;
+  document.getElementById("velo").style.display="block";
+  document.getElementById("hoja").classList.add("abierta");
+}
+function cerrarHoja(){ document.getElementById("velo").style.display="none"; document.getElementById("hoja").classList.remove("abierta"); }
+function editarExtra(uid){
+  const ex=extras()[uid]||{};
+  const ing=prompt("Ingreso de esta reserva (solo número):", ex.ingreso||"");
+  if(ing===null) return;
+  const nota=prompt("Nota (hora de llegada, peticiones…):", ex.nota||"");
+  setExtra(uid,{ingreso:ing.trim(), nota:(nota||"").trim()});
+  cerrarHoja(); pintarTodo(); toast("Guardado");
+}
+
+/* ================== VISTA: LLEGADAS ================== */
+function pintarLlegadas(){
+  const hoy=hoyStr();
+  let hosp="";
+  cfg.apts.forEach((a,i)=>{
+    const e=nocheOcupada(i,hoy);
+    if(e&&e.tipo!=="blq") hosp+=fila(i,a.nombre,e.titulo+" · sale "+fechaBonita(e.fin),"");
+  });
+  document.getElementById("hospedados").innerHTML=hosp||`<div class="vacio">Nadie hospedado hoy</div>`;
+  let movs="";
+  for(let d=0;d<14;d++){
+    const f=sumaDias(hoy,d); let delDia="";
+    cfg.apts.forEach((a,i)=>{
+      eventos.filter(x=>x.apt===i&&x.tipo!=="blq").forEach(x=>{
+        if(x.fin===f) delDia+=fila(i,a.nombre,x.titulo,`<span class="etq salida">SALIDA</span>`);
+        if(x.ini===f) delDia+=fila(i,a.nombre,x.titulo,`<span class="etq entrada">ENTRADA</span>`);
+      });
+    });
+    if(delDia) movs+=`<h3 class="secc">${fechaBonita(f)}${f===hoy?" · HOY":""}</h3>`+delDia;
+  }
+  document.getElementById("movimientos").innerHTML=movs||`<div class="vacio">Sin entradas ni salidas en 14 días</div>`;
+}
+function fila(i,nombre,detalle,etq){
+  return `<div class="fila"><div class="chip" style="background:${COLORES[i]}"></div>
+          <div class="info"><b>${nombre}</b><small>${detalle}</small></div>${etq}</div>`;
+}
+function copiarResumen(){
+  const hoy=hoyStr(); let t="🏠 RESUMEN SEMANAL\n";
+  for(let d=0;d<7;d++){
+    const f=sumaDias(hoy,d); let lineas="";
+    cfg.apts.forEach((a,i)=>{
+      eventos.filter(x=>x.apt===i&&x.tipo!=="blq").forEach(x=>{
+        if(x.fin===f) lineas+="  ⬅️ Salida "+a.nombre+"\n";
+        if(x.ini===f) lineas+="  ➡️ Entrada "+a.nombre+" ("+x.titulo+")\n";
+      });
+    });
+    if(lineas) t+="\n"+fechaBonita(f).toUpperCase()+(f===hoy?" (HOY)":"")+"\n"+lineas;
+  }
+  if(t==="🏠 RESUMEN SEMANAL\n") t+="\nSin movimientos esta semana ✅";
+  navigator.clipboard.writeText(t).then(()=>toast("Resumen copiado. Péguelo en WhatsApp 📋"))
+    .catch(()=>{ prompt("Copie el texto:",t); });
+}
+
+/* ================== VISTA: HUECOS ================== */
+function pintarHuecos(){
+  const hoy=hoyStr(), limite=sumaDias(hoy,90); let h="";
+  cfg.apts.forEach((a,i)=>{
+    const ocupados=eventosDe(i).filter(e=>e.fin>hoy&&e.ini<limite);
+    let cursor=hoy;
+    const libres=[];
+    for(const e of ocupados){
+      if(e.ini>cursor) libres.push([cursor,e.ini]);
+      if(e.fin>cursor) cursor=e.fin;
+    }
+    if(cursor<limite) libres.push([cursor,limite,true]);
+    for(const [d1,d2,abierto] of libres){
+      const n=nochesEntre(d1,d2);
+      if(n<1) continue;
+      h+=`<div class="fila"><div class="chip" style="background:${COLORES[i]}"></div>
+          <div class="info"><b>${a.nombre}</b><small>${fechaBonita(d1)} → ${abierto?"en adelante":fechaBonita(d2)}</small></div>
+          <span class="etq hueco">${abierto?n+"+":n} noche${n===1?"":"s"}</span></div>`;
+    }
+  });
+  document.getElementById("listaHuecos").innerHTML=h||`<div class="vacio">¡Sin huecos! Todo reservado 🎉</div>`;
+}
+
+/* ================== VISTA: STATS ================== */
+function pintarStats(){
+  const [y,m]=mesStats.split("-").map(Number);
+  document.getElementById("tituloMesStats").textContent=MESES[m-1]+" "+y;
+  const diasMes=new Date(y,m,0).getDate();
+  const ini=mesStats+"-01", fin=fmt(new Date(y,m,1));
+  let html="", totN=0, totI=0;
+  cfg.apts.forEach((a,i)=>{
+    let noches=0;
+    for(let d=1;d<=diasMes;d++){
+      const f=mesStats+"-"+String(d).padStart(2,"0");
+      const e=nocheOcupada(i,f);
+      if(e&&e.tipo!=="blq") noches++;
+    }
+    let ingreso=0;
+    eventos.filter(e=>e.apt===i&&e.tipo!=="blq"&&e.ini>=ini&&e.ini<fin).forEach(e=>{
+      const ex=extras()[e.uid]; if(ex&&ex.ingreso) ingreso+=Number(ex.ingreso)||0;
+    });
+    totN+=noches; totI+=ingreso;
+    html+=`<tr><td><span class="puntito" style="background:${COLORES[i]}"></span> ${a.nombre}</td>
+           <td>${noches}</td><td>${Math.round(noches/diasMes*100)}%</td>
+           <td>${ingreso?ingreso.toLocaleString("es"):"—"}</td></tr>`;
+  });
+  html+=`<tr><td>Total</td><td>${totN}</td><td>${Math.round(totN/(diasMes*cfg.apts.length)*100)}%</td><td>${totI?totI.toLocaleString("es"):"—"}</td></tr>`;
+  document.getElementById("cuerpoStats").innerHTML=html;
+}
+function cambiarMesStats(n){
+  let [y,m]=mesStats.split("-").map(Number); m+=n;
+  if(m<1){m=12;y--;} if(m>12){m=1;y++;}
+  mesStats=y+"-"+String(m).padStart(2,"0"); pintarStats();
+}
+
+/* ================== VISTA: AJUSTES ================== */
+function pintarAjustes(){
+  let h="";
+  cfg.apts.forEach((a,i)=>{
+    h+=`<label class="campo"><span class="puntito" style="background:${COLORES[i]}"></span> Nombre apartamento ${i+1}</label>
+        <input type="text" id="aj-n${i}" value="${a.nombre.replace(/"/g,"&quot;")}">
+        <label class="campo">Enlace iCal Airbnb ${i+1}</label>
+        <input type="url" id="aj-u${i}" value="${a.url.replace(/"/g,"&quot;")}">`;
+  });
+  document.getElementById("formApts").innerHTML=h;
+  document.getElementById("inpDirecta").value=cfg.directa||"";
+}
+function guardarAjustes(){
+  cfg.apts.forEach((a,i)=>{
+    a.nombre=document.getElementById("aj-n"+i).value.trim()||("Apto "+(i+1));
+    a.url=document.getElementById("aj-u"+i).value.trim();
+  });
+  cfg.directa=document.getElementById("inpDirecta").value.trim();
+  localStorage.setItem(LS.cfg, JSON.stringify(cfg));
+  toast("Ajustes guardados"); sincronizar(false);
+}
+function copiarEnlaceCfg(){
+  const enlace=location.origin+location.pathname+"#cfg="+btoa(unescape(encodeURIComponent(JSON.stringify(cfg))));
+  navigator.clipboard.writeText(enlace).then(()=>toast("Enlace copiado 🔗 Compártalo por WhatsApp"))
+    .catch(()=>{ prompt("Copie el enlace:",enlace); });
+}
+
+/* ================== NAVEGACIÓN ================== */
+function irA(v){
+  document.querySelectorAll("main > section").forEach(s=>s.style.display="none");
+  document.getElementById("v-"+v).style.display="";
+  document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("activo",b.dataset.v===v));
+  if(v==="cal") pintarCalendario();
+  if(v==="lleg") pintarLlegadas();
+  if(v==="huecos") pintarHuecos();
+  if(v==="stats") pintarStats();
+  if(v==="ajustes") pintarAjustes();
+}
+function pintarTodo(){
+  const activa=document.querySelector("nav button.activo");
+  irA(activa?activa.dataset.v:"cal");
+}
+function toast(m){
+  const t=document.getElementById("toast"); t.textContent=m; t.style.display="block";
+  clearTimeout(t._h); t._h=setTimeout(()=>t.style.display="none",2600);
+}
+
+/* ================== ARRANQUE ================== */
+cargarCfg();
+if(!cfg || !cfg.apts || !cfg.apts.length){ mostrarSetup(); }
+else{
+  // pinta primero con la copia guardada para que se vea al instante
+  try{ const c=JSON.parse(localStorage.getItem(LS.cache)); if(c){ eventos=c.eventos; pintarTodo(); } }catch(e){}
+  sincronizar(false);
+}
+</script>
+</body>
+</html>
