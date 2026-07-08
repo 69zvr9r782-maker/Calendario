@@ -551,7 +551,9 @@ function irA(v){
 }
 function pintarTodo(){
   const activa=document.querySelector("nav button.activo");
-  irA(activa?activa.dataset.v:"cal");
+  const v=activa?activa.dataset.v:"cal";
+  if(v==="ajustes") return; // no repintar mientras el usuario edita los ajustes
+  irA(v);
 }
 function toast(m){
   const t=document.getElementById("toast"); t.textContent=m; t.style.display="block";
