@@ -158,6 +158,10 @@
   <section id="v-setup" style="display:none">
     <div class="carta">
       <h3 class="secc" style="margin-top:2px">Bienvenido 👋 Configuración inicial</h3>
+      <label class="campo">¿Le dieron un código? Escríbalo aquí y listo</label>
+      <input type="text" id="su-pin" placeholder="Código" autocapitalize="none">
+      <button class="btn" onclick="cargarConPin()">🔑 Cargar configuración con código</button>
+      <p class="nota-ayuda" style="text-align:center">— o configure manualmente —</p>
       <p class="nota-ayuda">Pegue los enlaces iCal de sus anuncios de Airbnb (Calendario → Disponibilidad → Exportar calendario). Puede dejar vacíos los que no use.</p>
       <div id="formSetup"></div>
       <button class="btn" onclick="guardarSetup()">Comenzar</button>
@@ -240,6 +244,31 @@ function guardarSetup(){
   cfg={apts, directa:document.getElementById("su-dir").value.trim()};
   localStorage.setItem(LS.cfg, JSON.stringify(cfg));
   location.reload();
+}
+
+/* ================== CONFIGURACIÓN CON CÓDIGO (PIN) ================== */
+// Lee config.enc (archivo cifrado publicado junto a la app) y lo descifra
+// con el código. Cifrado: PBKDF2-SHA256 (600000 iteraciones, sal fija) + AES-256-GCM.
+async function cargarConPin(){
+  const pin=document.getElementById("su-pin").value.trim();
+  if(pin.length<4){ toast("Escriba el código completo"); return; }
+  toast("Verificando…");
+  try{
+    const r=await fetch("config.enc",{cache:"no-store"});
+    if(!r.ok) throw new Error("sin archivo");
+    const j=await r.json();
+    const enc=new TextEncoder();
+    const b64=function(s){ return Uint8Array.from(atob(s),function(c){return c.charCodeAt(0);}); };
+    const base=await crypto.subtle.importKey("raw",enc.encode(pin),"PBKDF2",false,["deriveKey"]);
+    const clave=await crypto.subtle.deriveKey(
+      {name:"PBKDF2",salt:enc.encode("operacion-airbnb-v1"),iterations:600000,hash:"SHA-256"},
+      base,{name:"AES-GCM",length:256},false,["decrypt"]);
+    const plano=await crypto.subtle.decrypt({name:"AES-GCM",iv:b64(j.iv)},clave,b64(j.datos));
+    const cfgNueva=JSON.parse(new TextDecoder().decode(plano));
+    if(!cfgNueva.apts||!cfgNueva.apts.length) throw new Error("config vacía");
+    localStorage.setItem(LS.cfg,JSON.stringify(cfgNueva));
+    location.reload();
+  }catch(e){ toast("Código incorrecto — inténtelo de nuevo"); }
 }
 
 /* ================== DESCARGA iCAL ================== */
