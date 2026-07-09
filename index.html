@@ -63,7 +63,7 @@
   .btn{display:block; width:100%; padding:12px; border:none; border-radius:10px; background:var(--azul); color:#fff; font-size:14.5px; font-weight:600; cursor:pointer; margin-top:10px;}
   .btn.sec{background:#e9eef4; color:var(--azul);}
   label.campo{display:block; font-size:12px; color:var(--gris); margin-top:10px; font-weight:600;}
-  input[type=text], input[type=url], input[type=number]{width:100%; padding:10px; border:1px solid #d6dee6; border-radius:8px; font-size:13.5px; margin-top:3px; background:#fbfcfe;}
+  input[type=text], input[type=url], input[type=number], input[type=date], select{width:100%; padding:10px; border:1px solid #d6dee6; border-radius:8px; font-size:13.5px; margin-top:3px; background:#fbfcfe;}
   .nota-ayuda{font-size:12px; color:var(--gris); line-height:1.45; margin-top:6px;}
   /* Hoja de detalle */
   #velo{position:fixed; inset:0; background:rgba(15,25,35,.45); z-index:40; display:none;}
@@ -110,6 +110,7 @@
       <div id="hospedados"></div>
       <h3 class="secc">Próximos 14 días</h3>
       <div id="movimientos"></div>
+      <button class="btn" onclick="abrirFormDirecta()">➕ Agregar reserva directa</button>
       <button class="btn sec" onclick="copiarResumen()">📋 Copiar resumen semanal (WhatsApp)</button>
     </div>
   </section>
@@ -329,7 +330,19 @@ async function sincronizar(manual){
   } else {
     eventos=nuevos;
     localStorage.setItem(LS.cache, JSON.stringify({fecha:new Date().toLocaleString("es"), eventos}));
+    // Reservas directas cuyas noches NO están bloqueadas ni reservadas en Airbnb
+    const porBloquear=[];
+    for(const d of nuevos){
+      if(d.tipo!=="dir"||d.apt<0) continue;
+      const sueltas=[];
+      for(let f=d.ini; f<d.fin; f=sumaDias(f,1)){
+        const cubierta=nuevos.some(function(e){ return e.apt===d.apt && e.tipo!=="dir" && e.ini<=f && f<e.fin; });
+        if(!cubierta) sueltas.push(f);
+      }
+      if(sueltas.length) porBloquear.push(cfg.apts[d.apt].nombre+": "+fechaBonita(sueltas[0])+" → "+fechaBonita(sumaDias(sueltas[sueltas.length-1],1))+" («"+d.titulo.trim().slice(0,25)+"»)");
+    }
     const mensajes=[];
+    if(porBloquear.length) mensajes.push("🔒 BLOQUEE EN AIRBNB estas fechas con reserva directa: "+porBloquear.join("; ")+".");
     if(fallas.length) mensajes.push("No se pudo actualizar: "+fallas.join(", ")+".");
     if(sinApto.length) mensajes.push("Reservas directas ocultas por no tener número de apartamento al inicio del título: "+sinApto.join(", ")+". Renómbrelas en Google Calendar, ej. «2 - Familia García».");
     if(mensajes.length){ aviso.textContent="⚠️ "+mensajes.join(" "); aviso.style.display="block"; }
@@ -396,12 +409,17 @@ function abrirDia(f){
     let estado, extra="";
     if(e){
       const ex=extras()[e.uid]||{};
-      estado=e.tipo==="blq"?"Bloqueado":e.titulo+" ("+fechaBonita(e.ini)+" → "+fechaBonita(e.fin)+", "+nochesEntre(e.ini,e.fin)+" noches)";
-      if(e.tipo!=="blq"){
+      estado=e.tipo==="blq"?"Bloqueado (sin etiqueta)":e.titulo+" ("+fechaBonita(e.ini)+" → "+fechaBonita(e.fin)+", "+nochesEntre(e.ini,e.fin)+" noches)";
+      if(e.tipo==="blq"){
+        extra=`<div><button class="btn sec" style="margin-top:6px;padding:8px" onclick="abrirFormDirecta(${i},'${e.ini}','${e.fin}',true)">🏷️ Etiquetar este bloqueo</button></div>`;
+      } else {
         extra=`<small style="color:var(--gris)">${ex.ingreso?("💵 "+Number(ex.ingreso).toLocaleString("es")):"Sin ingreso capturado"}${ex.nota?(" · 📝 "+ex.nota):""}</small>
                <div><button class="btn sec" style="margin-top:6px;padding:8px" onclick="editarExtra('${e.uid}')">✏️ Ingreso / nota</button></div>`;
       }
-    } else estado="Libre esta noche";
+    } else {
+      estado="Libre esta noche";
+      extra=`<div><button class="btn sec" style="margin-top:6px;padding:8px" onclick="abrirFormDirecta(${i},'${f}')">➕ Reserva directa</button></div>`;
+    }
     h+=`<div class="fila"><div class="chip" style="background:${COLORES[i]}"></div>
         <div class="info"><b>${a.nombre}</b><small>${estado}</small>${extra}</div>${linea}</div>`;
   });
@@ -417,6 +435,41 @@ function editarExtra(uid){
   const nota=prompt("Nota (hora de llegada, peticiones…):", ex.nota||"");
   setExtra(uid,{ingreso:ing.trim(), nota:(nota||"").trim()});
   cerrarHoja(); pintarTodo(); toast("Guardado");
+}
+
+/* ================== RESERVA DIRECTA / ETIQUETA ================== */
+function idCalDirecta(){
+  if(!cfg.directa) return "";
+  const m=cfg.directa.match(/\/ical\/([^/]+)\//);
+  return m? decodeURIComponent(m[1]) : "";
+}
+function abrirFormDirecta(apt, ini, fin, esEtiqueta){
+  const hoy=hoyStr();
+  ini=ini||hoy; fin=fin||sumaDias(ini,1);
+  const ops=cfg.apts.map(function(a,i){ return '<option value="'+i+'"'+(i===apt?" selected":"")+'>'+a.nombre+'</option>'; }).join("");
+  document.getElementById("hoja").innerHTML=
+    '<h2>'+(esEtiqueta?'🏷️ Etiquetar bloqueo':'➕ Reserva directa')+'</h2>'+
+    '<label class="campo">Apartamento</label><select id="fd-apt">'+ops+'</select>'+
+    '<label class="campo">'+(esEtiqueta?'Motivo del bloqueo':'Nombre del huésped o motivo')+'</label>'+
+    '<input type="text" id="fd-nom" placeholder="'+(esEtiqueta?'Visita familiar, mantenimiento…':'Familia García')+'">'+
+    '<label class="campo">Llegada</label><input type="date" id="fd-ini" value="'+ini+'">'+
+    '<label class="campo">Salida</label><input type="date" id="fd-fin" value="'+fin+'">'+
+    '<button class="btn" onclick="crearEventoDirecta()">Abrir Google Calendar para guardar</button>'+
+    '<p class="nota-ayuda">Se abrirá Google Calendar con el evento listo (título con el número del apartamento incluido). Verifique que quede en el calendario «Reservas directas» y guarde. Aparecerá en la app en la próxima actualización.</p>';
+  document.getElementById("velo").style.display="block";
+  document.getElementById("hoja").classList.add("abierta");
+}
+function crearEventoDirecta(){
+  const i=Number(document.getElementById("fd-apt").value);
+  const nom=document.getElementById("fd-nom").value.trim()||"Reserva directa";
+  const ini=document.getElementById("fd-ini").value, fin=document.getElementById("fd-fin").value;
+  if(!ini||!fin||fin<=ini){ toast("Revise las fechas: la salida debe ser después de la llegada"); return; }
+  let url="https://calendar.google.com/calendar/render?action=TEMPLATE&text="+
+    encodeURIComponent((i+1)+" - "+nom)+"&dates="+ini.replace(/-/g,"")+"/"+fin.replace(/-/g,"");
+  const id=idCalDirecta(); if(id) url+="&src="+encodeURIComponent(id);
+  window.open(url,"_blank");
+  cerrarHoja();
+  toast("Guarde el evento en Google Calendar y luego toque 🔄 Actualizar");
 }
 
 /* ================== VISTA: LLEGADAS ================== */
