@@ -258,7 +258,8 @@ async function bajarICS(url){
       if(texto.trim().startsWith("{")){                    // respuesta JSON de allorigins/get
         const j=JSON.parse(texto);
         texto=j.contents||"";
-        if(texto.startsWith("data:")) texto=atob(texto.split(",")[1]); // a veces viene en base64
+        if(texto.startsWith("data:")){ texto=atob(texto.split(",")[1]); // a veces viene en base64
+          try{ texto=decodeURIComponent(escape(texto)); }catch(e){} }   // corregir acentos (UTF-8)
       }
       if(!texto.includes("BEGIN:VCALENDAR")) throw new Error("Respuesta sin calendario");
       return texto;
@@ -292,7 +293,7 @@ function parseICS(texto){
 async function sincronizar(manual){
   if(!cfg) return;
   document.getElementById("estadoSync").textContent="Actualizando…";
-  const nuevos=[]; const fallas=[];
+  const nuevos=[]; const fallas=[]; const sinApto=[];
   // Airbnb por apartamento
   for(let i=0;i<cfg.apts.length;i++){
     try{
@@ -311,6 +312,7 @@ async function sincronizar(manual){
       for(const e of evs){
         let apt=-1; const m=e.titulo.match(/^\s*([1-9])\s*[-–.:]?\s*(.*)/);
         if(m && Number(m[1])<=cfg.apts.length) apt=Number(m[1])-1;
+        if(apt<0) sinApto.push("«"+(e.titulo||"sin título").trim().slice(0,30)+"»");
         nuevos.push({apt, ini:e.ini, fin:e.fin, tipo:"dir",
                      titulo:(m?m[2]:e.titulo)||"Reserva directa", uid:"d|"+e.uid});
       }
@@ -327,7 +329,10 @@ async function sincronizar(manual){
   } else {
     eventos=nuevos;
     localStorage.setItem(LS.cache, JSON.stringify({fecha:new Date().toLocaleString("es"), eventos}));
-    if(fallas.length){ aviso.textContent="⚠️ No se pudo actualizar: "+fallas.join(", ")+". El resto está al día."; aviso.style.display="block"; }
+    const mensajes=[];
+    if(fallas.length) mensajes.push("No se pudo actualizar: "+fallas.join(", ")+".");
+    if(sinApto.length) mensajes.push("Reservas directas ocultas por no tener número de apartamento al inicio del título: "+sinApto.join(", ")+". Renómbrelas en Google Calendar, ej. «2 - Familia García».");
+    if(mensajes.length){ aviso.textContent="⚠️ "+mensajes.join(" "); aviso.style.display="block"; }
     else aviso.style.display="none";
   }
   document.getElementById("estadoSync").textContent="✓ "+new Date().toLocaleTimeString("es",{hour:"2-digit",minute:"2-digit"});
@@ -338,8 +343,9 @@ async function sincronizar(manual){
 /* ================== UTILIDADES DE OCUPACIÓN ================== */
 // ¿Está ocupada la noche de la fecha f (f → f+1) en el apto i?
 function nocheOcupada(i,f){
-  for(const e of eventos){ if(e.apt===i && e.ini<=f && f<e.fin) return e; }
-  return null;
+  let blq=null; // si coinciden un bloqueo y una reserva, mostrar la reserva
+  for(const e of eventos){ if(e.apt===i && e.ini<=f && f<e.fin){ if(e.tipo==="blq") blq=e; else return e; } }
+  return blq;
 }
 function eventosDe(i){ return eventos.filter(e=>e.apt===i).sort((a,b)=>a.ini<b.ini?-1:1); }
 
