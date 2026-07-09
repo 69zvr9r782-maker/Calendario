@@ -204,7 +204,9 @@ function cargarCfg(){
   // ¿Viene configuración en el enlace? (#cfg=...)
   if(location.hash.startsWith("#cfg=")){
     try{
-      const j = JSON.parse(decodeURIComponent(escape(atob(location.hash.slice(5)))));
+      let b64 = location.hash.slice(5).replace(/-/g,"+").replace(/_/g,"/"); // aceptar base64url (a prueba de WhatsApp)
+      while(b64.length%4) b64+="=";
+      const j = JSON.parse(decodeURIComponent(escape(atob(b64))));
       if(j && j.apts){ localStorage.setItem(LS.cfg, JSON.stringify(j)); toast("Configuración cargada ✅"); }
     }catch(e){ toast("El enlace de configuración no es válido"); }
     history.replaceState(null,"",location.pathname+location.search);
@@ -247,9 +249,15 @@ const RELEVOS = [
   u => "https://api.codetabs.com/v1/proxy?quest="+encodeURIComponent(u),     // texto directo
   u => "https://corsproxy.io/?url="+encodeURIComponent(u)                    // texto directo
 ];
-async function bajarICS(url){
+async function bajarICS(url, semilla){
   let ultimoError=null;
-  for(const arma of RELEVOS){
+  // dos rondas de intentos, empezando por un relevo distinto según el calendario
+  // para repartir la carga entre los 4 servicios y no saturar ninguno
+  const intentos=[];
+  for(let r=0;r<2;r++) for(let k=0;k<RELEVOS.length;k++) intentos.push({arma:RELEVOS[(k+(semilla||0))%RELEVOS.length], pausa:r>0&&k===0});
+  for(const paso of intentos){
+    if(paso.pausa) await new Promise(function(res){setTimeout(res,1500);});
+    const arma=paso.arma;
     try{
       const ctl=new AbortController(); const t=setTimeout(()=>ctl.abort(),12000);
       const r=await fetch(arma(url), {signal:ctl.signal});
@@ -298,18 +306,23 @@ async function sincronizar(manual){
   // Airbnb por apartamento
   for(let i=0;i<cfg.apts.length;i++){
     try{
-      const evs=parseICS(await bajarICS(cfg.apts[i].url));
+      const evs=parseICS(await bajarICS(cfg.apts[i].url, i));
       for(const e of evs){
         const esBloqueo=/not available/i.test(e.titulo);
         nuevos.push({apt:i, ini:e.ini, fin:e.fin, tipo:esBloqueo?"blq":"res",
                      titulo:esBloqueo?"Bloqueado":"Reserva Airbnb", uid:"a"+i+"|"+e.uid});
       }
-    }catch(err){ fallas.push(cfg.apts[i].nombre); }
+    }catch(err){
+      fallas.push(cfg.apts[i].nombre);
+      // rescatar la última copia guardada de este apartamento
+      try{ const c=JSON.parse(localStorage.getItem(LS.cache));
+        if(c) for(const e of c.eventos) if(e.apt===i && e.tipo!=="dir") nuevos.push(e); }catch(e2){}
+    }
   }
   // Reservas directas (Google Calendar)
   if(cfg.directa){
     try{
-      const evs=parseICS(await bajarICS(cfg.directa));
+      const evs=parseICS(await bajarICS(cfg.directa, cfg.apts.length));
       for(const e of evs){
         let apt=-1; const m=e.titulo.match(/^\s*([1-9])\s*[-–.:]?\s*(.*)/);
         if(m && Number(m[1])<=cfg.apts.length) apt=Number(m[1])-1;
@@ -317,7 +330,12 @@ async function sincronizar(manual){
         nuevos.push({apt, ini:e.ini, fin:e.fin, tipo:"dir",
                      titulo:(m?m[2]:e.titulo)||"Reserva directa", uid:"d|"+e.uid});
       }
-    }catch(err){ fallas.push("Reservas directas"); }
+    }catch(err){
+      fallas.push("Reservas directas");
+      // rescatar la última copia guardada de reservas directas
+      try{ const c=JSON.parse(localStorage.getItem(LS.cache));
+        if(c) for(const e of c.eventos) if(e.tipo==="dir") nuevos.push(e); }catch(e2){}
+    }
   }
   const aviso=document.getElementById("avisoSync");
   if(fallas.length && !nuevos.length){
@@ -343,7 +361,7 @@ async function sincronizar(manual){
     }
     const mensajes=[];
     if(porBloquear.length) mensajes.push("🔒 BLOQUEE EN AIRBNB estas fechas con reserva directa: "+porBloquear.join("; ")+".");
-    if(fallas.length) mensajes.push("No se pudo actualizar: "+fallas.join(", ")+".");
+    if(fallas.length) mensajes.push("Sin conexión con: "+fallas.join(", ")+" — mostrando su última copia. Toque 🔄 en Ajustes para reintentar.");
     if(sinApto.length) mensajes.push("Reservas directas ocultas por no tener número de apartamento al inicio del título: "+sinApto.join(", ")+". Renómbrelas en Google Calendar, ej. «2 - Familia García».");
     if(mensajes.length){ aviso.textContent="⚠️ "+mensajes.join(" "); aviso.style.display="block"; }
     else aviso.style.display="none";
@@ -592,7 +610,8 @@ function guardarAjustes(){
   toast("Ajustes guardados"); sincronizar(false);
 }
 function copiarEnlaceCfg(){
-  const enlace=location.origin+location.pathname+"#cfg="+btoa(unescape(encodeURIComponent(JSON.stringify(cfg))));
+  const enlace=location.origin+location.pathname+"#cfg="+btoa(unescape(encodeURIComponent(JSON.stringify(cfg))))
+    .replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""); // base64url: sobrevive WhatsApp/correo
   navigator.clipboard.writeText(enlace).then(()=>toast("Enlace copiado 🔗 Compártalo por WhatsApp"))
     .catch(()=>{ prompt("Copie el enlace:",enlace); });
 }
