@@ -59,6 +59,10 @@
   table.stats th{text-align:left; color:var(--gris); font-size:11.5px; padding:6px 4px; border-bottom:1px solid #e8edf2;}
   table.stats td{padding:8px 4px; border-bottom:1px solid #f0f3f6;}
   table.stats tr:last-child td{border-bottom:none; font-weight:700;}
+  table.stats tr.mesActual td{background:#eef5fc;}
+  .segmento{display:flex; background:#e9eef4; border-radius:10px; padding:3px; margin-bottom:10px;}
+  .segmento button{flex:1; border:none; background:none; padding:8px 0; border-radius:8px; font-size:13px; font-weight:700; color:var(--gris); cursor:pointer;}
+  .segmento button.activo{background:#fff; color:var(--azul); box-shadow:0 1px 2px rgba(0,0,0,.15);}
   /* Botones y formularios */
   .btn{display:block; width:100%; padding:12px; border:none; border-radius:10px; background:var(--azul); color:#fff; font-size:14.5px; font-weight:600; cursor:pointer; margin-top:10px;}
   .btn.sec{background:#e9eef4; color:var(--azul);}
@@ -126,16 +130,39 @@
   <!-- VISTA STATS -->
   <section id="v-stats" style="display:none">
     <div class="carta">
-      <div class="barraMes">
-        <button onclick="cambiarMesStats(-1)">‹</button>
-        <b id="tituloMesStats"></b>
-        <button onclick="cambiarMesStats(1)">›</button>
+      <div class="segmento">
+        <button id="segMes" class="activo" onclick="modoStats('mes')">Mes</button>
+        <button id="segAnio" onclick="modoStats('anio')">Año</button>
       </div>
-      <table class="stats">
-        <thead><tr><th>Apartamento</th><th>Noches</th><th>Ocupación</th><th>Ingresos</th></tr></thead>
-        <tbody id="cuerpoStats"></tbody>
-      </table>
-      <p class="nota-ayuda">Los ingresos se capturan tocando una reserva en el calendario. Se cuentan en el mes de la llegada y se guardan en este teléfono.</p>
+      <div id="statsMes">
+        <div class="barraMes">
+          <button onclick="cambiarMesStats(-1)">‹</button>
+          <b id="tituloMesStats"></b>
+          <button onclick="cambiarMesStats(1)">›</button>
+        </div>
+        <table class="stats">
+          <thead><tr><th>Apartamento</th><th>Noches</th><th>Ocupación</th><th>Ingresos</th></tr></thead>
+          <tbody id="cuerpoStats"></tbody>
+        </table>
+        <p class="nota-ayuda">Los ingresos se capturan tocando una reserva en el calendario. Se cuentan en el mes de la llegada y se guardan en este teléfono.</p>
+      </div>
+      <div id="statsAnio" style="display:none">
+        <div class="barraMes">
+          <button onclick="cambiarAnioStats(-1)">‹</button>
+          <b id="tituloAnioStats"></b>
+          <button onclick="cambiarAnioStats(1)">›</button>
+        </div>
+        <table class="stats">
+          <thead><tr><th>Apartamento</th><th>Noches</th><th>Ocupación*</th><th>Ingresos</th></tr></thead>
+          <tbody id="cuerpoStatsAnio"></tbody>
+        </table>
+        <h3 class="secc">Mes a mes</h3>
+        <table class="stats">
+          <thead><tr><th>Mes</th><th>Noches</th><th>Ocupación</th><th>Ingresos</th></tr></thead>
+          <tbody id="cuerpoStatsMeses"></tbody>
+        </table>
+        <p class="nota-ayuda" id="notaAnio"></p>
+      </div>
     </div>
   </section>
 
@@ -189,6 +216,8 @@ let cfg = null;          // {apts:[{nombre,url}], directa:""}
 let eventos = [];        // {apt:0-2|-1, ini:"YYYY-MM-DD", fin:"YYYY-MM-DD", tipo:"res"|"blq"|"dir", titulo, uid}
 let mesVista = hoyStr().slice(0,7);
 let mesStats = hoyStr().slice(0,7);
+let anioStats = new Date().getFullYear();
+let statsModo = "mes";
 const LS = { cfg:"str_cfg", cache:"str_cache", extras:"str_extras" };
 
 function hoyStr(){ const d=new Date(); return fmt(d); }
@@ -586,7 +615,17 @@ function pintarHuecos(){
 }
 
 /* ================== VISTA: STATS ================== */
-function pintarStats(){
+function modoStats(m){
+  statsModo=m;
+  document.getElementById("segMes").classList.toggle("activo",m==="mes");
+  document.getElementById("segAnio").classList.toggle("activo",m==="anio");
+  document.getElementById("statsMes").style.display=m==="mes"?"":"none";
+  document.getElementById("statsAnio").style.display=m==="anio"?"":"none";
+  pintarStats();
+}
+function pintarStats(){ if(statsModo==="anio") pintarStatsAnio(); else pintarStatsMes(); }
+
+function pintarStatsMes(){
   const [y,m]=mesStats.split("-").map(Number);
   document.getElementById("tituloMesStats").textContent=MESES[m-1]+" "+y;
   const diasMes=new Date(y,m,0).getDate();
@@ -614,8 +653,62 @@ function pintarStats(){
 function cambiarMesStats(n){
   let [y,m]=mesStats.split("-").map(Number); m+=n;
   if(m<1){m=12;y--;} if(m>12){m=1;y++;}
-  mesStats=y+"-"+String(m).padStart(2,"0"); pintarStats();
+  mesStats=y+"-"+String(m).padStart(2,"0"); pintarStatsMes();
 }
+
+/* ---- Año completo: ocupación hasta hoy + noches e ingresos de todo el año ---- */
+function pintarStatsAnio(){
+  const y=anioStats, hoy=hoyStr(), nA=cfg.apts.length;
+  document.getElementById("tituloAnioStats").textContent=y;
+  const noches=cfg.apts.map(()=>Array(12).fill(0));      // noches por apto y mes (todo el año)
+  const ingresos=cfg.apts.map(()=>Array(12).fill(0));    // ingresos por apto y mes de llegada
+  const nochesYTD=Array(nA).fill(0);                     // noches ocupadas del 1 ene hasta hoy
+  const diasPorMes=[]; let diasYTD=0;
+  for(let m=1;m<=12;m++){
+    const diasMes=new Date(y,m,0).getDate(); diasPorMes.push(diasMes);
+    for(let d=1;d<=diasMes;d++){
+      const f=y+"-"+String(m).padStart(2,"0")+"-"+String(d).padStart(2,"0");
+      if(f<=hoy) diasYTD++;
+      for(let i=0;i<nA;i++){
+        const e=nocheOcupada(i,f);
+        if(e&&e.tipo!=="blq"){ noches[i][m-1]++; if(f<=hoy) nochesYTD[i]++; }
+      }
+    }
+  }
+  const iniAnio=y+"-01-01", finAnio=(y+1)+"-01-01", ex=extras();
+  for(let i=0;i<nA;i++){
+    eventos.filter(e=>e.apt===i&&e.tipo!=="blq"&&e.ini>=iniAnio&&e.ini<finAnio).forEach(e=>{
+      const x=ex[e.uid]; if(x&&x.ingreso) ingresos[i][Number(e.ini.slice(5,7))-1]+=Number(x.ingreso)||0;
+    });
+  }
+  const pct=(a,b)=> b? Math.round(a/b*100)+"%" : "—";
+  const dinero=v=> v? v.toLocaleString("es") : "—";
+  // Tabla por apartamento
+  let html="", tN=0, tY=0, tI=0;
+  cfg.apts.forEach((a,i)=>{
+    const nT=noches[i].reduce((s,v)=>s+v,0);
+    const iT=ingresos[i].reduce((s,v)=>s+v,0);
+    tN+=nT; tY+=nochesYTD[i]; tI+=iT;
+    html+=`<tr><td><span class="puntito" style="background:${COLORES[i]}"></span> ${a.nombre}</td>
+           <td>${nT}</td><td>${pct(nochesYTD[i],diasYTD)}</td><td>${dinero(iT)}</td></tr>`;
+  });
+  html+=`<tr><td>Total</td><td>${tN}</td><td>${pct(tY,diasYTD*nA)}</td><td>${dinero(tI)}</td></tr>`;
+  document.getElementById("cuerpoStatsAnio").innerHTML=html;
+  // Tabla mes a mes (todos los apartamentos juntos)
+  const mesHoy=hoy.slice(0,7);
+  let hm="";
+  for(let m=0;m<12;m++){
+    const clave=y+"-"+String(m+1).padStart(2,"0");
+    const nM=noches.reduce((s,fila)=>s+fila[m],0);
+    const iM=ingresos.reduce((s,fila)=>s+fila[m],0);
+    hm+=`<tr class="${clave===mesHoy?"mesActual":""}"><td style="text-transform:capitalize">${MESES[m].slice(0,3)}</td>
+         <td>${nM||"—"}</td><td>${nM?pct(nM,diasPorMes[m]*nA):"—"}</td><td>${dinero(iM)}</td></tr>`;
+  }
+  hm+=`<tr><td>Total</td><td>${tN}</td><td>${pct(tY,diasYTD*nA)}*</td><td>${dinero(tI)}</td></tr>`;
+  document.getElementById("cuerpoStatsMeses").innerHTML=hm;
+  document.getElementById("notaAnio").textContent="* Ocupación calculada del 1 de enero hasta hoy (noches ocupadas ÷ noches transcurridas). «Noches» e «Ingresos» cubren todo el año e incluyen reservas futuras. Los ingresos se cuentan en el mes de la llegada y se guardan en este teléfono.";
+}
+function cambiarAnioStats(n){ anioStats+=n; pintarStatsAnio(); }
 
 /* ================== VISTA: AJUSTES ================== */
 function pintarAjustes(){
