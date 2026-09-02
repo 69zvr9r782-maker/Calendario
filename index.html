@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#1a3c5e">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Operación Airbnb</title>
+<title>Easy Rentals App</title>
 <style>
   :root{
     --azul:#1a3c5e; --fondo:#f4f6f9; --carta:#ffffff; --texto:#22303e; --gris:#8a97a5;
@@ -17,12 +17,14 @@
   header{background:var(--azul); color:#fff; padding:12px 16px; position:sticky; top:0; z-index:20; display:flex; align-items:center; justify-content:space-between;}
   header h1{font-size:17px; margin:0; font-weight:600;}
   #estadoSync{font-size:11px; opacity:.85;}
+  #quienSoy{font-size:11px; opacity:.9; background:rgba(255,255,255,.15); padding:4px 9px; border-radius:12px; border:none; color:#fff; cursor:pointer;}
+  .hdr-der{display:flex; align-items:center; gap:8px;}
   main{padding:12px; max-width:560px; margin:0 auto;}
   .carta{background:var(--carta); border-radius:12px; padding:12px; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,.07);}
   /* Navegación inferior */
   nav{position:fixed; bottom:0; left:0; right:0; background:#fff; border-top:1px solid #e3e8ee; display:flex; z-index:30; padding-bottom:env(safe-area-inset-bottom);}
-  nav button{flex:1; background:none; border:none; padding:9px 0 7px; font-size:10.5px; color:var(--gris); cursor:pointer;}
-  nav button .ico{display:block; font-size:20px; margin-bottom:1px;}
+  nav button{flex:1; background:none; border:none; padding:7px 1px 5px; font-size:9px; color:var(--gris); cursor:pointer;}
+  nav button .ico{display:block; font-size:16px; margin-bottom:1px;}
   nav button.activo{color:var(--azul); font-weight:700;}
   /* Calendario */
   .barraMes{display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;}
@@ -60,15 +62,43 @@
   table.stats td{padding:8px 4px; border-bottom:1px solid #f0f3f6;}
   table.stats tr:last-child td{border-bottom:none; font-weight:700;}
   table.stats tr.mesActual td{background:#eef5fc;}
-  .segmento{display:flex; background:#e9eef4; border-radius:10px; padding:3px; margin-bottom:10px;}
-  .segmento button{flex:1; border:none; background:none; padding:8px 0; border-radius:8px; font-size:13px; font-weight:700; color:var(--gris); cursor:pointer;}
+  .segmento{display:flex; background:#e9eef4; border-radius:10px; padding:3px; margin-bottom:10px; overflow-x:auto; gap:2px;}
+  .segmento button{flex:1; border:none; background:none; padding:8px 4px; border-radius:8px; font-size:12.5px; font-weight:700; color:var(--gris); cursor:pointer; white-space:nowrap;}
   .segmento button.activo{background:#fff; color:var(--azul); box-shadow:0 1px 2px rgba(0,0,0,.15);}
   /* Botones y formularios */
   .btn{display:block; width:100%; padding:12px; border:none; border-radius:10px; background:var(--azul); color:#fff; font-size:14.5px; font-weight:600; cursor:pointer; margin-top:10px;}
   .btn.sec{background:#e9eef4; color:var(--azul);}
   label.campo{display:block; font-size:12px; color:var(--gris); margin-top:10px; font-weight:600;}
-  input[type=text], input[type=url], input[type=number], input[type=date], select{width:100%; padding:10px; border:1px solid #d6dee6; border-radius:8px; font-size:13.5px; margin-top:3px; background:#fbfcfe;}
+  input[type=text], input[type=url], input[type=number], input[type=date], input[type=tel], input[type=email], select, textarea{width:100%; padding:10px; border:1px solid #d6dee6; border-radius:8px; font-size:13.5px; margin-top:3px; background:#fbfcfe; font-family:inherit;}
+  textarea{resize:vertical; min-height:56px;}
   .nota-ayuda{font-size:12px; color:var(--gris); line-height:1.45; margin-top:6px;}
+  /* Inventario y proveedores */
+  .fila-prod{display:flex; align-items:center; gap:10px; padding:9px 4px; border-bottom:1px solid #f0f3f6;}
+  .fila-prod:last-child{border-bottom:none;}
+  .fila-prod .info{flex:1; min-width:0;}
+  .fila-prod .info b{font-size:14px; display:block;}
+  .fila-prod .info small{color:var(--gris); font-size:11.5px;}
+  .stepper{display:flex; align-items:center; gap:8px;}
+  .stepper button{width:32px; height:32px; border-radius:8px; border:none; background:#e9eef4; color:var(--azul); font-size:18px; font-weight:700; cursor:pointer;}
+  .stepper input{width:44px; text-align:center; padding:6px 2px; margin:0;}
+  .bajo{color:var(--apt1); font-weight:700;}
+  .fila-prod .info small.min-line{font-size:15.5px; font-weight:600; color:#4a5866;}
+  .editar-prod{font-size:12px; cursor:pointer; opacity:.55; margin-left:2px;}
+  .etq.bajo{background:#fdeae6; color:#b6402a;}
+  .fila-prov{padding:11px 4px; border-bottom:1px solid #f0f3f6;}
+  .fila-prov:last-child{border-bottom:none;}
+  .fila-prov .cab{display:flex; justify-content:space-between; align-items:center; gap:8px;}
+  .fila-prov b{font-size:14.5px;}
+  .fila-prov .cat{font-size:11px; color:var(--gris); margin-top:1px;}
+  .fila-prov .estrellas{color:var(--directa-borde); font-size:12px;}
+  .fila-prov .notas{font-size:12.5px; color:#4a5866; margin-top:5px; line-height:1.4;}
+  .fila-prov .props{font-size:11px; color:var(--gris); margin-top:4px;}
+  .acciones{display:flex; gap:8px; margin-top:8px;}
+  .acciones a, .acciones button{flex:1; text-align:center; padding:8px 0; border-radius:8px; font-size:12.5px; font-weight:700; text-decoration:none; border:none; cursor:pointer;}
+  .acciones .llamar{background:#e2f5ea; color:#1b7a45;}
+  .acciones .wa{background:#e2f0f5; color:#146c94;}
+  .acciones .editar{background:#e9eef4; color:var(--azul);}
+  .buscar{width:100%; padding:10px 12px; border:1px solid #d6dee6; border-radius:10px; font-size:13.5px; margin-bottom:10px; background:#fbfcfe;}
   /* Hoja de detalle */
   #velo{position:fixed; inset:0; background:rgba(15,25,35,.45); z-index:40; display:none;}
   #hoja{position:fixed; left:0; right:0; bottom:-100%; background:#fff; border-radius:18px 18px 0 0; z-index:50; padding:16px 16px calc(20px + env(safe-area-inset-bottom)); transition:bottom .22s; max-height:75vh; overflow-y:auto;}
@@ -80,8 +110,11 @@
 </head>
 <body>
 <header>
-  <h1>🏠 Operación Airbnb</h1>
-  <span id="estadoSync">—</span>
+  <h1>🏠 Easy Rentals App</h1>
+  <div class="hdr-der">
+    <span id="estadoSync">—</span>
+    <button id="quienSoy" onclick="abrirCambiarUsuario()">—</button>
+  </div>
 </header>
 
 <main>
@@ -181,6 +214,40 @@
     </div>
   </section>
 
+  <!-- VISTA STOCK -->
+  <section id="v-stock" style="display:none">
+    <div class="carta">
+      <div class="segmento" id="segLocs"></div>
+      <div id="listaStock"></div>
+      <button class="btn" onclick="abrirFormProducto()">➕ Agregar producto</button>
+      <button class="btn sec" onclick="abrirEliminados()">🗄️ Ver productos eliminados</button>
+    </div>
+  </section>
+
+  <!-- VISTA COMPRAS -->
+  <section id="v-compras" style="display:none">
+    <div class="carta">
+      <h3 class="secc" style="margin-top:2px">Qué hay que comprar</h3>
+      <div id="listaCompras"></div>
+    </div>
+    <div class="carta">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 class="secc" style="margin:0">Stock completo</h3>
+        <button class="btn sec" style="width:auto; margin:0; padding:7px 12px; font-size:12px;" onclick="toggleStockCompleto()">Ver / Ocultar</button>
+      </div>
+      <div id="stockCompleto" style="display:none; margin-top:8px;"></div>
+    </div>
+  </section>
+
+  <!-- VISTA PROVEEDORES -->
+  <section id="v-prov" style="display:none">
+    <div class="carta">
+      <input class="buscar" id="buscarProv" placeholder="Buscar por nombre o categoría..." oninput="renderProveedores()">
+      <div id="listaProv"></div>
+      <button class="btn" onclick="abrirFormProveedor()">➕ Agregar proveedor</button>
+    </div>
+  </section>
+
   <!-- CONFIGURACIÓN INICIAL -->
   <section id="v-setup" style="display:none">
     <div class="carta">
@@ -197,10 +264,13 @@
 </main>
 
 <nav id="navegacion">
-  <button data-v="cal" class="activo" onclick="irA('cal')"><span class="ico">📅</span>Calendario</button>
+  <button data-v="cal" class="activo" onclick="irA('cal')"><span class="ico">📅</span>Calend.</button>
   <button data-v="lleg" onclick="irA('lleg')"><span class="ico">🧳</span>Llegadas</button>
   <button data-v="huecos" onclick="irA('huecos')"><span class="ico">✨</span>Huecos</button>
   <button data-v="stats" onclick="irA('stats')"><span class="ico">📊</span>Stats</button>
+  <button data-v="stock" onclick="irA('stock')"><span class="ico">🧴</span>Inventarios</button>
+  <button data-v="compras" onclick="irA('compras')"><span class="ico">🛒</span>Compras</button>
+  <button data-v="prov" onclick="irA('prov')"><span class="ico">🔧</span>Provee.</button>
   <button data-v="ajustes" onclick="irA('ajustes')"><span class="ico">⚙️</span>Ajustes</button>
 </nav>
 
@@ -247,10 +317,7 @@ function cargarCfg(){
   try{ cfg = JSON.parse(localStorage.getItem(LS.cfg)); }catch(e){ cfg=null; }
 }
 
-function mostrarSetup(){
-  document.querySelectorAll("main > section").forEach(s=>s.style.display="none");
-  document.getElementById("navegacion").style.display="none";
-  document.getElementById("v-setup").style.display="";
+function pintarSetup(){
   let h="";
   for(let i=0;i<3;i++){
     h+=`<label class="campo">Nombre del apartamento ${i+1}</label>
@@ -738,8 +805,373 @@ function copiarEnlaceCfg(){
     .catch(()=>{ prompt("Copie el enlace:",enlace); });
 }
 
+/* ================== INVENTARIO Y PROVEEDORES ================== */
+const API_INV = "https://inventario-proveedores-app.phdcrr5bzd.workers.dev";
+const CATEGORIAS = ["Limpieza","Blancos","Abarrotes"];
+const CATEGORIAS_PROV = ["Plumbing","Electrical","HVAC","Appliance Repair","General Contractor","Pest Control","Insurance Agent","Painting","Pool/Landscaping","Other"];
+
+let usuario = localStorage.getItem("usuario") || "";
+let inv_properties = [], inv_products = [], inv_providers = [], inv_shoppingList = [];
+let ubicacionActual = null;
+let inventarioListo = null;
+
+async function apiInv(path, opts={}){
+  const res = await fetch(API_INV + path, { headers:{"Content-Type":"application/json"}, ...opts });
+  if(!res.ok) throw new Error("Error "+res.status);
+  return res.json();
+}
+function abrirHoja(html){
+  document.getElementById("hoja").innerHTML = html;
+  document.getElementById("hoja").classList.add("abierta");
+  document.getElementById("velo").style.display = "block";
+}
+
+// ---------- Usuario ----------
+function abrirCambiarUsuario(){
+  abrirHoja(`
+    <h2>¿Quién eres?</h2>
+    <div style="display:flex; flex-direction:column; gap:8px; margin-top:10px;">
+      ${["Jorge","Mercedes","Diego"].map(n=>`<button class="btn ${n===usuario?'':'sec'}" onclick="elegirUsuario('${n}')">${n}</button>`).join("")}
+    </div>
+  `);
+}
+function elegirUsuario(n){
+  usuario = n;
+  localStorage.setItem("usuario", n);
+  document.getElementById("quienSoy").textContent = n;
+  cerrarHoja();
+}
+
+// ---------- Carga de datos (una sola vez, con caché en memoria) ----------
+function asegurarInventario(){
+  if(!inventarioListo) inventarioListo = cargarInventario();
+  return inventarioListo;
+}
+async function cargarInventario(){
+  try{
+    [inv_properties, inv_products, inv_providers, inv_shoppingList] = await Promise.all([
+      apiInv("/api/properties"), apiInv("/api/products"), apiInv("/api/providers"), apiInv("/api/shopping-list"),
+    ]);
+    if(!ubicacionActual) ubicacionActual = inv_properties.find(p=>p.type!=="long_term_rental")?.id;
+  }catch(e){
+    inventarioListo = null; // permitir reintentar la próxima vez que se abra una vista de inventario
+    toast("No se pudo conectar con el servidor de inventario");
+    console.error(e);
+  }
+}
+async function verStock(){ await asegurarInventario(); renderStock(); }
+async function verCompras(){ await asegurarInventario(); renderCompras(); renderStockCompleto(); }
+async function verProveedores(){ await asegurarInventario(); renderProveedores(); }
+
+// ---------- STOCK (actualizar cantidades) ----------
+let filasStockActual = [];
+function renderSegLocs(){
+  const locs = inv_properties.filter(p=>p.type!=="long_term_rental");
+  document.getElementById("segLocs").innerHTML = locs.map(p=>
+    `<button class="${p.id===ubicacionActual?'activo':''}" onclick="cambiarUbicacion(${p.id})">${p.nickname||p.name.replace('El Botánico - ','')}</button>`
+  ).join("");
+}
+function cambiarUbicacion(id){ ubicacionActual = id; renderStock(); }
+// En Perla la cantidad es el saldo real de la bodega (el rojo tiene sentido ahí).
+// En los apartamentos la cantidad ya es el pedido/lo que falta para llegar al mínimo,
+// no un saldo — así que ahí el mínimo se muestra siempre igual, nunca en rojo.
+function esPerlaActual(){
+  const p = inv_properties.find(x=>x.id===ubicacionActual);
+  return !!(p && p.type === "primary_residence");
+}
+function lineaMin(it){
+  const bajo = esPerlaActual() && it.min_quantity!=null && it.quantity < it.min_quantity;
+  return bajo ? '<span class="bajo">Bajo el mínimo ('+it.min_quantity+')</span>' : 'Min: '+(it.min_quantity ?? '—');
+}
+async function renderStock(){
+  renderSegLocs();
+  const cont = document.getElementById("listaStock");
+  cont.innerHTML = '<div class="vacio">Cargando...</div>';
+  const filas = await apiInv("/api/stock?property_id=" + ubicacionActual);
+  filasStockActual = filas;
+  if(!filas.length){ cont.innerHTML = '<div class="vacio">Sin productos para este lugar</div>'; return; }
+  let html = "";
+  for(const cat of CATEGORIAS){
+    const items = filas.filter(f=>f.category===cat);
+    if(!items.length) continue;
+    html += `<h3 class="secc">${cat}</h3>`;
+    for(const it of items){
+      html += `
+        <div class="fila-prod">
+          <div class="info">
+            <b>${it.product_name} <span class="editar-prod" onclick="abrirFormProducto(${it.product_id})" title="Editar">✏️</span></b>
+            <small class="min-line" id="minline-${it.product_id}">${lineaMin(it)}</small>
+          </div>
+          <div class="stepper">
+            <button onclick="ajustarStock(${it.product_id}, -1)">−</button>
+            <input type="number" id="cant-${it.product_id}" value="${it.quantity}" onchange="fijarStock(${it.product_id}, this.value)">
+            <button onclick="ajustarStock(${it.product_id}, 1)">+</button>
+          </div>
+        </div>`;
+    }
+  }
+  cont.innerHTML = html;
+}
+async function ajustarStock(productId, delta){
+  const input = document.getElementById("cant-"+productId);
+  const nueva = Math.max(0, parseFloat(input.value||0) + delta);
+  input.value = nueva;
+  await guardarStock(productId, nueva);
+}
+async function fijarStock(productId, valor){
+  const nueva = Math.max(0, parseFloat(valor||0));
+  await guardarStock(productId, nueva);
+}
+async function guardarStock(productId, cantidad){
+  try{
+    await apiInv("/api/stock", {method:"PATCH", body: JSON.stringify({
+      product_id: productId, property_id: ubicacionActual, quantity: cantidad, changed_by: usuario || null
+    })});
+    // actualizar el aviso de "Bajo el mínimo" en el momento, sin esperar a la próxima recarga
+    const it = filasStockActual.find(f=>f.product_id===productId);
+    if(it){
+      it.quantity = cantidad;
+      const el = document.getElementById("minline-"+productId);
+      if(el) el.innerHTML = lineaMin(it);
+    }
+    toast("Guardado ✓");
+  }catch(e){ toast("Error al guardar"); }
+}
+
+// ---------- Agregar / editar / eliminar productos del catálogo ----------
+// (la cantidad de cada producto se cambia solo con el +/- de arriba; aquí se
+//  administra qué productos existen, su categoría/proveedor, y el mínimo.
+//  Todo producto se guarda en los 3 apartamentos + Perla; los 3 apartamentos
+//  siempre comparten un mismo mínimo, Perla tiene el suyo propio porque es
+//  la bodega que abastece a los demás.)
+function abrirFormProducto(id){
+  const p = id ? inv_products.find(x=>x.id===id) : null;
+  const apt = p ? p.stock.find(s=>{ const prop = inv_properties.find(x=>x.id===s.property_id); return prop && prop.type==="str_rental"; }) : null;
+  const perla = p ? p.stock.find(s=>{ const prop = inv_properties.find(x=>x.id===s.property_id); return prop && prop.type==="primary_residence"; }) : null;
+  const camposApt = p
+    ? `<label class="campo">Mínimo por apartamento (14H, 14I, 14J — el mismo para los 3)</label>
+       <input type="number" id="pf-apt-min" value="${apt && apt.min_quantity!=null ? apt.min_quantity : ''}">`
+    : `<label class="campo">Apartamentos (14H, 14I, 14J): cantidad inicial y mínimo, el mismo para los 3</label>
+       <div style="display:flex; gap:8px;">
+         <input type="number" id="pf-apt-qty" placeholder="Cantidad">
+         <input type="number" id="pf-apt-min" placeholder="Mínimo">
+       </div>`;
+  const camposPerla = p
+    ? `<label class="campo">Mínimo en Perla</label>
+       <input type="number" id="pf-perla-min" value="${perla && perla.min_quantity!=null ? perla.min_quantity : ''}">`
+    : `<label class="campo">Perla: cantidad inicial y mínimo</label>
+       <div style="display:flex; gap:8px;">
+         <input type="number" id="pf-perla-qty" placeholder="Cantidad">
+         <input type="number" id="pf-perla-min" placeholder="Mínimo">
+       </div>`;
+  abrirHoja(`
+    <h2>${p ? "Editar producto" : "Nuevo producto"}</h2>
+    <label class="campo">Nombre</label>
+    <input type="text" id="pf-nombre" value="${p?.name||''}">
+    <label class="campo">Categoría</label>
+    <select id="pf-categoria">${CATEGORIAS.map(c=>`<option ${p?.category===c?'selected':''}>${c}</option>`).join("")}</select>
+    ${camposApt}
+    ${camposPerla}
+    <label class="campo">Proveedor</label>
+    <input type="text" id="pf-proveedor" value="${p?.supplier||''}">
+    <label class="campo">Costo unitario (US$, opcional)</label>
+    <input type="number" id="pf-costo" value="${p?.unit_cost_usd??''}">
+    <label class="campo">Notas</label>
+    <textarea id="pf-notas">${p?.notes||''}</textarea>
+    <p class="nota-ayuda">Deje un mínimo en blanco si no quiere avisos de compra ahí. El producto queda visible en los 3 apartamentos y en Perla.</p>
+    <button class="btn" onclick="guardarProducto(${id||'null'})">Guardar</button>
+    ${p ? `<button class="btn sec" style="color:#b6402a" onclick="eliminarProducto(${id})">🗑️ Eliminar producto</button>` : ""}
+  `);
+}
+async function guardarProducto(id){
+  const name = document.getElementById("pf-nombre").value.trim();
+  if(!name){ toast("El nombre es obligatorio"); return; }
+  const leer = (elId) => { const el = document.getElementById(elId); return el && el.value !== "" ? parseFloat(el.value) : null; };
+  const body = {
+    name,
+    category: document.getElementById("pf-categoria").value,
+    supplier: document.getElementById("pf-proveedor").value.trim(),
+    unit_cost_usd: leer("pf-costo"),
+    notes: document.getElementById("pf-notas").value.trim(),
+    apartment_min: leer("pf-apt-min"),
+    perla_min: leer("pf-perla-min"),
+  };
+  try{
+    if(id){
+      await apiInv("/api/products/"+id, {method:"PATCH", body: JSON.stringify(body)});
+    } else {
+      body.apartment_qty = leer("pf-apt-qty") || 0;
+      body.perla_qty = leer("pf-perla-qty") || 0;
+      await apiInv("/api/products", {method:"POST", body: JSON.stringify(body)});
+    }
+    cerrarHoja();
+    toast("Guardado ✓");
+    await refrescarInventario();
+  }catch(e){ toast("Error al guardar"); }
+}
+async function eliminarProducto(id){
+  const p = inv_products.find(x=>x.id===id);
+  if(!confirm(`¿Eliminar "${p?p.name:'este producto'}" del inventario? Podrá restaurarlo después desde "Ver productos eliminados".`)) return;
+  try{
+    await apiInv("/api/products/"+id+"/archive", {method:"POST"});
+    cerrarHoja();
+    toast("Producto eliminado");
+    await refrescarInventario();
+  }catch(e){ toast("Error al eliminar"); }
+}
+async function abrirEliminados(){
+  let items;
+  try{ items = await apiInv("/api/products?archived=1"); }catch(e){ toast("No se pudo cargar la lista"); return; }
+  if(!items.length){ abrirHoja(`<h2>Productos eliminados</h2><div class="vacio">No hay productos eliminados</div>`); return; }
+  const filas = items.map(p=>`
+    <div class="fila-prod">
+      <div class="info"><b>${p.name}</b><small>${p.category||''}</small></div>
+      <button class="btn sec" style="width:auto; margin:0; padding:8px 12px; font-size:12.5px;" onclick="restaurarProducto(${p.id})">↩️ Restaurar</button>
+    </div>`).join("");
+  abrirHoja(`<h2>Productos eliminados</h2>${filas}`);
+}
+async function restaurarProducto(id){
+  try{
+    await apiInv("/api/products/"+id+"/unarchive", {method:"POST"});
+    toast("Producto restaurado ✓");
+    await refrescarInventario();
+    abrirEliminados();
+  }catch(e){ toast("Error al restaurar"); }
+}
+async function refrescarInventario(){
+  inventarioListo = null;
+  await asegurarInventario();
+  const activa=document.querySelector("nav button.activo");
+  const v=activa?activa.dataset.v:null;
+  if(v==="stock") renderStock();
+  if(v==="compras"){ renderCompras(); renderStockCompleto(); }
+}
+
+// ---------- COMPRAS (lista de compras + stock completo) ----------
+function renderCompras(){
+  const cont = document.getElementById("listaCompras");
+  if(!inv_shoppingList.length){ cont.innerHTML = '<div class="vacio">Nada por comprar por ahora 🎉</div>'; return; }
+  // El servidor ya entrega la lista ordenada por proveedor y nombre — agrupamos respetando ese orden.
+  const porProveedor = {};
+  for(const it of inv_shoppingList){
+    const prov = it.supplier || "Sin proveedor asignado";
+    (porProveedor[prov] ??= []).push(it);
+  }
+  let html = "";
+  for(const [prov, items] of Object.entries(porProveedor)){
+    html += `<h3 class="secc">${prov}</h3>`;
+    for(const it of items){
+      const detallePerla = it.perla_min!=null ? `Perla: ${it.perla_quantity} (mínimo ${it.perla_min})` : `Perla: ${it.perla_quantity}`;
+      html += `
+        <div class="fila-prod">
+          <div class="info">
+            <b>${it.product}</b>
+            <small>Piden apartamentos: ${it.apartment_demand} · ${detallePerla}</small>
+          </div>
+          <span class="etq bajo">Comprar ${it.purchase_quantity}</span>
+        </div>`;
+    }
+  }
+  cont.innerHTML = html;
+}
+let stockCompletoVisible = false;
+function toggleStockCompleto(){
+  stockCompletoVisible = !stockCompletoVisible;
+  document.getElementById("stockCompleto").style.display = stockCompletoVisible ? "block" : "none";
+}
+function renderStockCompleto(){
+  const locs = inv_properties.filter(p=>p.type!=="long_term_rental");
+  let html = `<div style="overflow-x:auto"><table style="width:100%; border-collapse:collapse; font-size:12.5px;">
+    <thead><tr><th style="text-align:left; padding:4px;">Producto</th>${locs.map(l=>`<th style="padding:4px;">${l.nickname||l.name.replace('El Botánico - ','')}</th>`).join("")}</tr></thead><tbody>`;
+  for(const p of inv_products){
+    html += `<tr><td style="padding:4px; border-top:1px solid #f0f3f6;">${p.name}</td>`;
+    for(const l of locs){
+      const s = p.stock.find(x=>x.property_id===l.id);
+      const val = s ? s.quantity : "—";
+      const bajo = s && s.low_stock;
+      html += `<td style="padding:4px; text-align:center; border-top:1px solid #f0f3f6;" class="${bajo?'bajo':''}">${val}</td>`;
+    }
+    html += `</tr>`;
+  }
+  html += `</tbody></table></div>`;
+  document.getElementById("stockCompleto").innerHTML = html;
+}
+
+// ---------- PROVEEDORES ----------
+function renderProveedores(){
+  const q = (document.getElementById("buscarProv")?.value || "").toLowerCase();
+  const cont = document.getElementById("listaProv");
+  const filtrados = inv_providers.filter(p =>
+    p.name.toLowerCase().includes(q) || (p.category||"").toLowerCase().includes(q)
+  );
+  if(!filtrados.length){ cont.innerHTML = '<div class="vacio">Sin resultados</div>'; return; }
+  cont.innerHTML = filtrados.map(p=>{
+    const tel = (p.phone||"").replace(/[^0-9+]/g,"");
+    const estrellas = p.rating ? "★".repeat(p.rating) : "";
+    return `
+      <div class="fila-prov">
+        <div class="cab">
+          <div>
+            <b>${p.name}</b>
+            <div class="cat">${p.category||"Sin categoría"} ${estrellas ? " · " + estrellas : ""}</div>
+          </div>
+        </div>
+        ${p.notes ? `<div class="notas">${p.notes}</div>` : ""}
+        ${p.properties_served?.length ? `<div class="props">Atiende: ${p.properties_served.join(", ")}</div>` : ""}
+        <div class="acciones">
+          ${p.phone ? `<a class="llamar" href="tel:${tel}">📞 Llamar</a>` : ""}
+          ${p.phone ? `<a class="wa" target="_blank" href="https://wa.me/${tel.replace('+','')}">💬 WhatsApp</a>` : ""}
+          <button class="editar" onclick="abrirFormProveedor(${p.id})">✏️ Editar</button>
+        </div>
+      </div>`;
+  }).join("");
+}
+function abrirFormProveedor(id){
+  const p = id ? inv_providers.find(x=>x.id===id) : null;
+  abrirHoja(`
+    <h2>${p ? "Editar proveedor" : "Nuevo proveedor"}</h2>
+    <label class="campo">Nombre</label>
+    <input type="text" id="f-nombre" value="${p?.name||''}">
+    <label class="campo">Categoría</label>
+    <select id="f-categoria">${CATEGORIAS_PROV.map(c=>`<option ${p?.category===c?'selected':''}>${c}</option>`).join("")}</select>
+    <label class="campo">Teléfono</label>
+    <input type="tel" id="f-telefono" value="${p?.phone||''}" placeholder="+507 6000 0000">
+    <label class="campo">Email</label>
+    <input type="email" id="f-email" value="${p?.email||''}">
+    <label class="campo">Calificación (1-5)</label>
+    <select id="f-rating">
+      <option value="">—</option>
+      ${[1,2,3,4,5].map(n=>`<option value="${n}" ${p?.rating===n?'selected':''}>${"★".repeat(n)}</option>`).join("")}
+    </select>
+    <label class="campo">Notas</label>
+    <textarea id="f-notas">${p?.notes||''}</textarea>
+    <button class="btn" onclick="guardarProveedor(${id||'null'})">Guardar</button>
+  `);
+}
+async function guardarProveedor(id){
+  const body = {
+    name: document.getElementById("f-nombre").value.trim(),
+    category: document.getElementById("f-categoria").value,
+    phone: document.getElementById("f-telefono").value.trim(),
+    email: document.getElementById("f-email").value.trim(),
+    rating: document.getElementById("f-rating").value ? parseInt(document.getElementById("f-rating").value) : null,
+    notes: document.getElementById("f-notas").value.trim(),
+  };
+  if(!body.name){ toast("El nombre es obligatorio"); return; }
+  try{
+    if(id) await apiInv("/api/providers/"+id, {method:"PATCH", body: JSON.stringify(body)});
+    else await apiInv("/api/providers", {method:"POST", body: JSON.stringify(body)});
+    cerrarHoja();
+    toast("Guardado ✓");
+    inv_providers = await apiInv("/api/providers");
+    renderProveedores();
+  }catch(e){ toast("Error al guardar"); }
+}
+
 /* ================== NAVEGACIÓN ================== */
 function irA(v){
+  const vistasCalendario=["cal","lleg","huecos","stats","ajustes"];
+  if(vistasCalendario.includes(v) && (!cfg||!cfg.apts||!cfg.apts.length)) v="setup";
   document.querySelectorAll("main > section").forEach(s=>s.style.display="none");
   document.getElementById("v-"+v).style.display="";
   document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("activo",b.dataset.v===v));
@@ -748,11 +1180,15 @@ function irA(v){
   if(v==="huecos") pintarHuecos();
   if(v==="stats") pintarStats();
   if(v==="ajustes") pintarAjustes();
+  if(v==="setup") pintarSetup();
+  if(v==="stock") verStock();
+  if(v==="compras") verCompras();
+  if(v==="prov") verProveedores();
 }
 function pintarTodo(){
   const activa=document.querySelector("nav button.activo");
   const v=activa?activa.dataset.v:"cal";
-  if(v==="ajustes") return; // no repintar mientras el usuario edita los ajustes
+  if(v==="ajustes"||v==="stock"||v==="compras"||v==="prov") return; // no repintar estas vistas por una sincronización de calendario
   irA(v);
 }
 function toast(m){
@@ -762,12 +1198,15 @@ function toast(m){
 
 /* ================== ARRANQUE ================== */
 cargarCfg();
-if(!cfg || !cfg.apts || !cfg.apts.length){ mostrarSetup(); }
+if(!cfg || !cfg.apts || !cfg.apts.length){ irA("stock"); }
 else{
+  asegurarInventario(); // precarga inventario en segundo plano, sin bloquear el calendario
   // pinta primero con la copia guardada para que se vea al instante
   try{ const c=JSON.parse(localStorage.getItem(LS.cache)); if(c){ eventos=c.eventos; pintarTodo(); } }catch(e){}
   sincronizar(false);
 }
+document.getElementById("quienSoy").textContent = usuario || "¿Quién eres?";
+if(!usuario) setTimeout(abrirCambiarUsuario, 400);
 </script>
 </body>
 </html>
