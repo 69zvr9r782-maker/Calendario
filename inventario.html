@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#1a3c5e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Inventario y Proveedores</title>
+<style>
+  :root{
+    --azul:#1a3c5e; --fondo:#f4f6f9; --carta:#ffffff; --texto:#22303e; --gris:#8a97a5;
+    --verde:#28a765; --rojo:#e05d44; --amarillo:#f5b400;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{margin:0; font-family:-apple-system,'Segoe UI',Roboto,sans-serif; background:var(--fondo); color:var(--texto); padding-bottom:74px;}
+  header{background:var(--azul); color:#fff; padding:12px 16px; position:sticky; top:0; z-index:20; display:flex; align-items:center; justify-content:space-between;}
+  header h1{font-size:17px; margin:0; font-weight:600;}
+  #quienSoy{font-size:11px; opacity:.9; background:rgba(255,255,255,.15); padding:4px 9px; border-radius:12px; border:none; color:#fff;}
+  main{padding:12px; max-width:560px; margin:0 auto;}
+  .carta{background:var(--carta); border-radius:12px; padding:12px; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,.07);}
+  nav{position:fixed; bottom:0; left:0; right:0; background:#fff; border-top:1px solid #e3e8ee; display:flex; z-index:30; padding-bottom:env(safe-area-inset-bottom);}
+  nav button{flex:1; background:none; border:none; padding:9px 0 7px; font-size:10.5px; color:var(--gris); cursor:pointer;}
+  nav button .ico{display:block; font-size:20px; margin-bottom:1px;}
+  nav button.activo{color:var(--azul); font-weight:700;}
+  h3.secc{font-size:13px; color:var(--gris); text-transform:uppercase; letter-spacing:.5px; margin:16px 4px 6px;}
+  .vacio{color:var(--gris); font-size:13.5px; text-align:center; padding:18px 6px;}
+  .segmento{display:flex; background:#e9eef4; border-radius:10px; padding:3px; margin-bottom:10px; overflow-x:auto; gap:2px;}
+  .segmento button{flex:1; border:none; background:none; padding:8px 4px; border-radius:8px; font-size:12.5px; font-weight:700; color:var(--gris); cursor:pointer; white-space:nowrap;}
+  .segmento button.activo{background:#fff; color:var(--azul); box-shadow:0 1px 2px rgba(0,0,0,.15);}
+  .btn{display:block; width:100%; padding:12px; border:none; border-radius:10px; background:var(--azul); color:#fff; font-size:14.5px; font-weight:600; cursor:pointer; margin-top:10px;}
+  .btn.sec{background:#e9eef4; color:var(--azul);}
+  label.campo{display:block; font-size:12px; color:var(--gris); margin-top:10px; font-weight:600;}
+  input[type=text], input[type=tel], input[type=email], input[type=number], select, textarea{width:100%; padding:10px; border:1px solid #d6dee6; border-radius:8px; font-size:13.5px; margin-top:3px; background:#fbfcfe; font-family:inherit;}
+  textarea{resize:vertical; min-height:56px;}
+  /* Filas de producto con stepper */
+  .fila-prod{display:flex; align-items:center; gap:10px; padding:9px 4px; border-bottom:1px solid #f0f3f6;}
+  .fila-prod:last-child{border-bottom:none;}
+  .fila-prod .info{flex:1; min-width:0;}
+  .fila-prod .info b{font-size:14px; display:block;}
+  .fila-prod .info small{color:var(--gris); font-size:11.5px;}
+  .stepper{display:flex; align-items:center; gap:8px;}
+  .stepper button{width:32px; height:32px; border-radius:8px; border:none; background:#e9eef4; color:var(--azul); font-size:18px; font-weight:700; cursor:pointer;}
+  .stepper input{width:44px; text-align:center; padding:6px 2px; margin:0;}
+  .bajo{color:var(--rojo); font-weight:700;}
+  .etq{font-size:10.5px; font-weight:700; padding:3px 8px; border-radius:10px; white-space:nowrap; display:inline-block;}
+  .etq.bajo{background:#fdeae6; color:#b6402a;}
+  /* Proveedores */
+  .fila-prov{padding:11px 4px; border-bottom:1px solid #f0f3f6;}
+  .fila-prov:last-child{border-bottom:none;}
+  .fila-prov .cab{display:flex; justify-content:space-between; align-items:center; gap:8px;}
+  .fila-prov b{font-size:14.5px;}
+  .fila-prov .cat{font-size:11px; color:var(--gris); margin-top:1px;}
+  .fila-prov .estrellas{color:var(--amarillo); font-size:12px;}
+  .fila-prov .notas{font-size:12.5px; color:#4a5866; margin-top:5px; line-height:1.4;}
+  .fila-prov .props{font-size:11px; color:var(--gris); margin-top:4px;}
+  .acciones{display:flex; gap:8px; margin-top:8px;}
+  .acciones a, .acciones button{flex:1; text-align:center; padding:8px 0; border-radius:8px; font-size:12.5px; font-weight:700; text-decoration:none; border:none; cursor:pointer;}
+  .acciones .llamar{background:#e2f5ea; color:#1b7a45;}
+  .acciones .wa{background:#e2f0f5; color:#146c94;}
+  .acciones .editar{background:#e9eef4; color:var(--azul);}
+  /* Hoja de detalle */
+  #velo{position:fixed; inset:0; background:rgba(15,25,35,.45); z-index:40; display:none;}
+  #hoja{position:fixed; left:0; right:0; bottom:-100%; background:#fff; border-radius:18px 18px 0 0; z-index:50; padding:16px 16px calc(20px + env(safe-area-inset-bottom)); transition:bottom .22s; max-height:82vh; overflow-y:auto;}
+  #hoja.abierta{bottom:0;}
+  #hoja h2{margin:0 0 10px; font-size:16px;}
+  #toast{position:fixed; bottom:86px; left:50%; transform:translateX(-50%); background:#22303e; color:#fff; font-size:13px; padding:9px 16px; border-radius:20px; z-index:60; display:none; max-width:88%; text-align:center;}
+  .buscar{width:100%; padding:10px 12px; border:1px solid #d6dee6; border-radius:10px; font-size:13.5px; margin-bottom:10px; background:#fbfcfe;}
+</style>
+</head>
+<body>
+<header>
+  <h1>📦 Inventario y Proveedores</h1>
+  <button id="quienSoy" onclick="abrirCambiarUsuario()">—</button>
+</header>
+
+<main>
+
+  <!-- VISTA STOCK (actualizar cantidades) -->
+  <section id="v-stock" style="display:none">
+    <div class="carta">
+      <div class="segmento" id="segLocs"></div>
+      <div id="listaStock"></div>
+    </div>
+  </section>
+
+  <!-- VISTA COMPRAS (lo que hay que comprar) -->
+  <section id="v-compras">
+    <div class="carta">
+      <h3 class="secc" style="margin-top:2px">Que hay que comprar</h3>
+      <div id="listaCompras"></div>
+    </div>
+    <div class="carta">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 class="secc" style="margin:0">Stock completo</h3>
+        <button class="btn sec" style="width:auto; margin:0; padding:7px 12px; font-size:12px;" onclick="toggleStockCompleto()">Ver / Ocultar</button>
+      </div>
+      <div id="stockCompleto" style="display:none; margin-top:8px;"></div>
+    </div>
+  </section>
+
+  <!-- VISTA PROVEEDORES -->
+  <section id="v-prov" style="display:none">
+    <div class="carta">
+      <input class="buscar" id="buscarProv" placeholder="Buscar por nombre o categoría..." oninput="renderProveedores()">
+      <div id="listaProv"></div>
+      <button class="btn" onclick="abrirFormProveedor()">➕ Agregar proveedor</button>
+    </div>
+  </section>
+
+</main>
+
+<nav>
+  <button id="nav-stock" onclick="cambiarVista('stock')"><span class="ico">🧴</span>Stock</button>
+  <button id="nav-compras" onclick="cambiarVista('compras')"><span class="ico">🛒</span>Compras</button>
+  <button id="nav-prov" onclick="cambiarVista('prov')"><span class="ico">🔧</span>Proveedores</button>
+</nav>
+
+<div id="velo" onclick="cerrarHoja()"></div>
+<div id="hoja"></div>
+<div id="toast"></div>
+
+<script>
+const API = "https://inventario-proveedores-app.phdcrr5bzd.workers.dev";
+const CATEGORIAS = ["Limpieza","Blancos","Abarrotes"];
+const CATEGORIAS_PROV = ["Plumbing","Electrical","HVAC","Appliance Repair","General Contractor","Pest Control","Insurance Agent","Painting","Pool/Landscaping","Other"];
+
+let usuario = localStorage.getItem("usuario") || "";
+let properties = [], products = [], providers = [], shoppingList = [];
+let ubicacionActual = null;
+let vistaActual = "compras";
+
+async function api(path, opts={}){
+  const res = await fetch(API + path, {
+    headers: {"Content-Type":"application/json"},
+    ...opts
+  });
+  if(!res.ok) throw new Error("Error " + res.status);
+  return res.json();
+}
+
+function mostrarToast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.style.display = "block";
+  setTimeout(()=> t.style.display = "none", 2200);
+}
+
+function abrirHoja(html){
+  document.getElementById("hoja").innerHTML = html;
+  document.getElementById("hoja").classList.add("abierta");
+  document.getElementById("velo").style.display = "block";
+}
+function cerrarHoja(){
+  document.getElementById("hoja").classList.remove("abierta");
+  document.getElementById("velo").style.display = "none";
+}
+
+// ---------- Usuario ----------
+function abrirCambiarUsuario(){
+  abrirHoja(`
+    <h2>¿Quién eres?</h2>
+    <div style="display:flex; flex-direction:column; gap:8px; margin-top:10px;">
+      ${["Jorge","Mercedes","Diego"].map(n=>`<button class="btn ${n===usuario?'':'sec'}" onclick="elegirUsuario('${n}')">${n}</button>`).join("")}
+    </div>
+  `);
+}
+function elegirUsuario(n){
+  usuario = n;
+  localStorage.setItem("usuario", n);
+  document.getElementById("quienSoy").textContent = n;
+  cerrarHoja();
+}
+
+// ---------- Navegación ----------
+function cambiarVista(v){
+  vistaActual = v;
+  ["stock","compras","prov"].forEach(id=>{
+    document.getElementById("v-"+id).style.display = (id===v) ? "block" : "none";
+    document.getElementById("nav-"+id).classList.toggle("activo", id===v);
+  });
+  if(v==="stock") renderStock();
+  if(v==="compras") { renderCompras(); renderStockCompleto(); }
+  if(v==="prov") renderProveedores();
+}
+
+// ---------- Carga inicial ----------
+async function cargarTodo(){
+  try{
+    [properties, products, providers, shoppingList] = await Promise.all([
+      api("/api/properties"),
+      api("/api/products"),
+      api("/api/providers"),
+      api("/api/shopping-list"),
+    ]);
+    if(!ubicacionActual) ubicacionActual = properties.find(p=>p.type!=="long_term_rental")?.id;
+    cambiarVista(vistaActual);
+  }catch(e){
+    mostrarToast("No se pudo conectar con el servidor");
+    console.error(e);
+  }
+}
+
+// ---------- STOCK (actualizar cantidades) ----------
+function renderSegLocs(){
+  const locs = properties.filter(p=>p.type!=="long_term_rental");
+  document.getElementById("segLocs").innerHTML = locs.map(p=>
+    `<button class="${p.id===ubicacionActual?'activo':''}" onclick="cambiarUbicacion(${p.id})">${p.nickname||p.name.replace('El Botánico - ','')}</button>`
+  ).join("");
+}
+function cambiarUbicacion(id){
+  ubicacionActual = id;
+  renderStock();
+}
+async function renderStock(){
+  renderSegLocs();
+  const cont = document.getElementById("listaStock");
+  cont.innerHTML = '<div class="vacio">Cargando...</div>';
+  const filas = await api("/api/stock?property_id=" + ubicacionActual);
+  if(!filas.length){ cont.innerHTML = '<div class="vacio">Sin productos para este lugar</div>'; return; }
+  let html = "";
+  for(const cat of CATEGORIAS){
+    const items = filas.filter(f=>f.category===cat);
+    if(!items.length) continue;
+    html += `<h3 class="secc">${cat}</h3>`;
+    for(const it of items){
+      const bajo = it.min_quantity!=null && it.quantity < it.min_quantity;
+      html += `
+        <div class="fila-prod">
+          <div class="info">
+            <b>${it.product_name}</b>
+            <small>${bajo ? '<span class="bajo">Bajo el mínimo ('+it.min_quantity+')</span>' : 'Min: '+(it.min_quantity ?? '—')}</small>
+          </div>
+          <div class="stepper">
+            <button onclick="ajustarStock(${it.product_id}, -1, this)">−</button>
+            <input type="number" id="cant-${it.product_id}" value="${it.quantity}" onchange="fijarStock(${it.product_id}, this.value)">
+            <button onclick="ajustarStock(${it.product_id}, 1, this)">+</button>
+          </div>
+        </div>`;
+    }
+  }
+  cont.innerHTML = html;
+}
+async function ajustarStock(productId, delta){
+  const input = document.getElementById("cant-"+productId);
+  const nueva = Math.max(0, parseFloat(input.value||0) + delta);
+  input.value = nueva;
+  await guardarStock(productId, nueva);
+}
+async function fijarStock(productId, valor){
+  const nueva = Math.max(0, parseFloat(valor||0));
+  await guardarStock(productId, nueva);
+}
+async function guardarStock(productId, cantidad){
+  try{
+    await api("/api/stock", {method:"PATCH", body: JSON.stringify({
+      product_id: productId, property_id: ubicacionActual, quantity: cantidad, changed_by: usuario || null
+    })});
+    mostrarToast("Guardado ✓");
+  }catch(e){
+    mostrarToast("Error al guardar");
+  }
+}
+
+// ---------- COMPRAS (shopping list + stock completo) ----------
+function renderCompras(){
+  const cont = document.getElementById("listaCompras");
+  if(!shoppingList.length){ cont.innerHTML = '<div class="vacio">Nada por debajo del mínimo 🎉</div>'; return; }
+  const porProveedor = {};
+  for(const it of shoppingList){
+    const prod = products.find(p=>p.id===it.product_id);
+    const prov = prod?.supplier || "Sin proveedor asignado";
+    (porProveedor[prov] ??= []).push(it);
+  }
+  let html = "";
+  for(const [prov, items] of Object.entries(porProveedor)){
+    html += `<h3 class="secc">${prov}</h3>`;
+    for(const it of items){
+      const loc = it.property_nickname || it.property_name;
+      html += `
+        <div class="fila-prod">
+          <div class="info">
+            <b>${it.product}</b>
+            <small>${loc} — tiene ${it.quantity}, mínimo ${it.min_quantity}</small>
+          </div>
+          <span class="etq bajo">Comprar</span>
+        </div>`;
+    }
+  }
+  cont.innerHTML = html;
+}
+let stockCompletoVisible = false;
+function toggleStockCompleto(){
+  stockCompletoVisible = !stockCompletoVisible;
+  document.getElementById("stockCompleto").style.display = stockCompletoVisible ? "block" : "none";
+}
+function renderStockCompleto(){
+  const locs = properties.filter(p=>p.type!=="long_term_rental");
+  let html = `<div style="overflow-x:auto"><table style="width:100%; border-collapse:collapse; font-size:12.5px;">
+    <thead><tr><th style="text-align:left; padding:4px;">Producto</th>${locs.map(l=>`<th style="padding:4px;">${l.nickname||l.name.replace('El Botánico - ','')}</th>`).join("")}</tr></thead><tbody>`;
+  for(const p of products){
+    html += `<tr><td style="padding:4px; border-top:1px solid #f0f3f6;">${p.name}</td>`;
+    for(const l of locs){
+      const s = p.stock.find(x=>x.property_id===l.id);
+      const val = s ? s.quantity : "—";
+      const bajo = s && s.low_stock;
+      html += `<td style="padding:4px; text-align:center; border-top:1px solid #f0f3f6;" class="${bajo?'bajo':''}">${val}</td>`;
+    }
+    html += `</tr>`;
+  }
+  html += `</tbody></table></div>`;
+  document.getElementById("stockCompleto").innerHTML = html;
+}
+
+// ---------- PROVEEDORES ----------
+function renderProveedores(){
+  const q = (document.getElementById("buscarProv")?.value || "").toLowerCase();
+  const cont = document.getElementById("listaProv");
+  const filtrados = providers.filter(p =>
+    p.name.toLowerCase().includes(q) || (p.category||"").toLowerCase().includes(q)
+  );
+  if(!filtrados.length){ cont.innerHTML = '<div class="vacio">Sin resultados</div>'; return; }
+  cont.innerHTML = filtrados.map(p=>{
+    const tel = (p.phone||"").replace(/[^0-9+]/g,"");
+    const estrellas = p.rating ? "★".repeat(p.rating) : "";
+    return `
+      <div class="fila-prov">
+        <div class="cab">
+          <div>
+            <b>${p.name}</b>
+            <div class="cat">${p.category||"Sin categoría"} ${estrellas ? " · " + estrellas : ""}</div>
+          </div>
+        </div>
+        ${p.notes ? `<div class="notas">${p.notes}</div>` : ""}
+        ${p.properties_served?.length ? `<div class="props">Atiende: ${p.properties_served.join(", ")}</div>` : ""}
+        <div class="acciones">
+          ${p.phone ? `<a class="llamar" href="tel:${tel}">📞 Llamar</a>` : ""}
+          ${p.phone ? `<a class="wa" target="_blank" href="https://wa.me/${tel.replace('+','')}">💬 WhatsApp</a>` : ""}
+          <button class="editar" onclick="abrirFormProveedor(${p.id})">✏️ Editar</button>
+        </div>
+      </div>`;
+  }).join("");
+}
+
+function abrirFormProveedor(id){
+  const p = id ? providers.find(x=>x.id===id) : null;
+  abrirHoja(`
+    <h2>${p ? "Editar proveedor" : "Nuevo proveedor"}</h2>
+    <label class="campo">Nombre</label>
+    <input type="text" id="f-nombre" value="${p?.name||''}">
+    <label class="campo">Categoría</label>
+    <select id="f-categoria">${CATEGORIAS_PROV.map(c=>`<option ${p?.category===c?'selected':''}>${c}</option>`).join("")}</select>
+    <label class="campo">Teléfono</label>
+    <input type="tel" id="f-telefono" value="${p?.phone||''}" placeholder="+507 6000 0000">
+    <label class="campo">Email</label>
+    <input type="email" id="f-email" value="${p?.email||''}">
+    <label class="campo">Calificación (1-5)</label>
+    <select id="f-rating">
+      <option value="">—</option>
+      ${[1,2,3,4,5].map(n=>`<option value="${n}" ${p?.rating===n?'selected':''}>${"★".repeat(n)}</option>`).join("")}
+    </select>
+    <label class="campo">Notas</label>
+    <textarea id="f-notas">${p?.notes||''}</textarea>
+    <button class="btn" onclick="guardarProveedor(${id||'null'})">Guardar</button>
+  `);
+}
+async function guardarProveedor(id){
+  const body = {
+    name: document.getElementById("f-nombre").value.trim(),
+    category: document.getElementById("f-categoria").value,
+    phone: document.getElementById("f-telefono").value.trim(),
+    email: document.getElementById("f-email").value.trim(),
+    rating: document.getElementById("f-rating").value ? parseInt(document.getElementById("f-rating").value) : null,
+    notes: document.getElementById("f-notas").value.trim(),
+  };
+  if(!body.name){ mostrarToast("El nombre es obligatorio"); return; }
+  try{
+    if(id) await api("/api/providers/"+id, {method:"PATCH", body: JSON.stringify(body)});
+    else await api("/api/providers", {method:"POST", body: JSON.stringify(body)});
+    cerrarHoja();
+    mostrarToast("Guardado ✓");
+    providers = await api("/api/providers");
+    renderProveedores();
+  }catch(e){
+    mostrarToast("Error al guardar");
+  }
+}
+
+// ---------- Arranque ----------
+document.getElementById("quienSoy").textContent = usuario || "¿Quién eres?";
+if(!usuario) setTimeout(abrirCambiarUsuario, 300);
+cargarTodo();
+</script>
+</body>
+</html>
