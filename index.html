@@ -85,6 +85,7 @@
   .fila-prod .info small.min-line{font-size:15.5px; font-weight:600; color:#4a5866;}
   .editar-prod{font-size:12px; cursor:pointer; opacity:.55; margin-left:2px;}
   .etq.bajo{background:#fdeae6; color:#b6402a;}
+  .etq.llevar{background:#e6edf5; color:var(--azul);}
   .fila-prov{padding:11px 4px; border-bottom:1px solid #f0f3f6;}
   .fila-prov:last-child{border-bottom:none;}
   .fila-prov .cab{display:flex; justify-content:space-between; align-items:center; gap:8px;}
@@ -239,6 +240,11 @@
     </div>
   </section>
 
+  <!-- VISTA MALETA -->
+  <section id="v-maleta" style="display:none">
+    <div id="listaMaleta"></div>
+  </section>
+
   <!-- VISTA PROVEEDORES -->
   <section id="v-prov" style="display:none">
     <div class="carta">
@@ -270,6 +276,7 @@
   <button data-v="stats" onclick="irA('stats')"><span class="ico">📊</span>Stats</button>
   <button data-v="stock" onclick="irA('stock')"><span class="ico">🧴</span>Inventarios</button>
   <button data-v="compras" onclick="irA('compras')"><span class="ico">🛒</span>Compras</button>
+  <button data-v="maleta" onclick="irA('maleta')"><span class="ico">🎒</span>Maleta</button>
   <button data-v="prov" onclick="irA('prov')"><span class="ico">🔧</span>Provee.</button>
   <button data-v="ajustes" onclick="irA('ajustes')"><span class="ico">⚙️</span>Ajustes</button>
 </nav>
@@ -1097,6 +1104,41 @@ function renderStockCompleto(){
   document.getElementById("stockCompleto").innerHTML = html;
 }
 
+// ---------- MALETA (qué llevar a cada apartamento) ----------
+async function verMaleta(){ await asegurarInventario(); renderMaleta(); }
+function renderMaleta(){
+  const cont = document.getElementById("listaMaleta");
+  const apts = inv_properties.filter(p=>p.type==="str_rental");
+  if(!apts.length){ cont.innerHTML = '<div class="carta"><div class="vacio">Sin apartamentos configurados</div></div>'; return; }
+  let html = "";
+  for(const apt of apts){
+    const nombre = apt.nickname || apt.name.replace('El Botánico - ','');
+    const items = [];
+    for(const p of inv_products){
+      const s = p.stock.find(x=>x.property_id===apt.id);
+      if(s && s.quantity > 0) items.push({nombre:p.name, categoria:p.category, cantidad:s.quantity});
+    }
+    html += `<div class="carta"><h3 class="secc" style="margin-top:2px">🏠 ${nombre}</h3>`;
+    if(!items.length){
+      html += '<div class="vacio">Nada que llevar 🎉</div>';
+    } else {
+      const grupos = CATEGORIAS.concat(["__otras__"]);
+      for(const cat of grupos){
+        const enCat = cat==="__otras__"
+          ? items.filter(it=>!CATEGORIAS.includes(it.categoria))
+          : items.filter(it=>it.categoria===cat);
+        if(!enCat.length) continue;
+        if(cat!=="__otras__") html += `<div style="font-size:11.5px; color:var(--gris); text-transform:uppercase; letter-spacing:.4px; font-weight:700; margin:10px 2px 2px;">${cat}</div>`;
+        for(const it of enCat){
+          html += `<div class="fila-prod"><div class="info"><b>${it.nombre}</b></div><span class="etq llevar">${it.cantidad}</span></div>`;
+        }
+      }
+    }
+    html += `</div>`;
+  }
+  cont.innerHTML = html;
+}
+
 // ---------- PROVEEDORES ----------
 function renderProveedores(){
   const q = (document.getElementById("buscarProv")?.value || "").toLowerCase();
@@ -1183,12 +1225,13 @@ function irA(v){
   if(v==="setup") pintarSetup();
   if(v==="stock") verStock();
   if(v==="compras") verCompras();
+  if(v==="maleta") verMaleta();
   if(v==="prov") verProveedores();
 }
 function pintarTodo(){
   const activa=document.querySelector("nav button.activo");
   const v=activa?activa.dataset.v:"cal";
-  if(v==="ajustes"||v==="stock"||v==="compras"||v==="prov") return; // no repintar estas vistas por una sincronización de calendario
+  if(v==="ajustes"||v==="stock"||v==="compras"||v==="maleta"||v==="prov") return; // no repintar estas vistas por una sincronización de calendario
   irA(v);
 }
 function toast(m){
