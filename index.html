@@ -99,6 +99,17 @@
   .acciones .llamar{background:#e2f5ea; color:#1b7a45;}
   .acciones .wa{background:#e2f0f5; color:#146c94;}
   .acciones .editar{background:#e9eef4; color:var(--azul);}
+  .fila-mant{padding:10px 4px; border-bottom:1px solid #f0f3f6; cursor:pointer;}
+  .fila-mant:last-child{border-bottom:none;}
+  .fila-mant .cab{display:flex; justify-content:space-between; align-items:flex-start; gap:8px;}
+  .fila-mant b{font-size:14px;}
+  .fila-mant .monto{font-size:14px; font-weight:700; color:var(--azul); white-space:nowrap;}
+  .fila-mant .det{font-size:11.5px; color:var(--gris); margin-top:2px; line-height:1.4;}
+  .fila-mant .notas{font-size:12px; color:#4a5866; margin-top:3px;}
+  .etq.cat-mant{background:#eef1f5; color:#4a5866; font-size:10px; padding:2px 7px;}
+  .acciones .trabajos{background:#fff4d6; color:#8a6d00;}
+  .filtros-mant{display:flex; gap:8px;}
+  .filtros-mant select{margin-top:0;}
   .buscar{width:100%; padding:10px 12px; border:1px solid #d6dee6; border-radius:10px; font-size:13.5px; margin-bottom:10px; background:#fbfcfe;}
   /* Hoja de detalle */
   #velo{position:fixed; inset:0; background:rgba(15,25,35,.45); z-index:40; display:none;}
@@ -254,6 +265,29 @@
     </div>
   </section>
 
+  <!-- VISTA MANTENIMIENTO -->
+  <section id="v-mant" style="display:none">
+    <div class="carta">
+      <div class="barraMes">
+        <button onclick="cambiarAnioMant(-1)">‹</button>
+        <b id="tituloAnioMant"></b>
+        <button onclick="cambiarAnioMant(1)">›</button>
+      </div>
+      <table class="stats">
+        <thead><tr><th>Propiedad</th><th>Trabajos</th><th>Costo</th></tr></thead>
+        <tbody id="resumenMant"></tbody>
+      </table>
+    </div>
+    <div class="carta">
+      <div class="segmento" id="segPropMant"></div>
+      <div class="filtros-mant">
+        <select id="filtroCatMant" onchange="renderMantenimiento()"></select>
+      </div>
+      <div id="listaMant" style="margin-top:6px"></div>
+      <button class="btn" id="btnNuevoMant" onclick="abrirFormMant()">➕ Registrar trabajo</button>
+    </div>
+  </section>
+
   <!-- CONFIGURACIÓN INICIAL -->
   <section id="v-setup" style="display:none">
     <div class="carta">
@@ -278,6 +312,7 @@
   <button data-v="compras" onclick="irA('compras')"><span class="ico">🛒</span>Compras</button>
   <button data-v="maleta" onclick="irA('maleta')"><span class="ico">🎒</span>Maleta</button>
   <button data-v="prov" onclick="irA('prov')"><span class="ico">🔧</span>Provee.</button>
+  <button data-v="mant" onclick="irA('mant')"><span class="ico">🛠️</span>Manten.</button>
   <button data-v="ajustes" onclick="irA('ajustes')"><span class="ico">⚙️</span>Ajustes</button>
 </nav>
 
@@ -1163,6 +1198,7 @@ function renderProveedores(){
         <div class="acciones">
           ${p.phone ? `<a class="llamar" href="tel:${tel}">📞 Llamar</a>` : ""}
           ${p.phone ? `<a class="wa" target="_blank" href="https://wa.me/${tel.replace('+','')}">💬 WhatsApp</a>` : ""}
+          <button class="trabajos" onclick="verTrabajosProveedor(${p.id})">🛠️ Trabajos</button>
           <button class="editar" onclick="abrirFormProveedor(${p.id})">✏️ Editar</button>
         </div>
       </div>`;
@@ -1210,6 +1246,163 @@ async function guardarProveedor(id){
   }catch(e){ toast("Error al guardar"); }
 }
 
+/* ================== MANTENIMIENTO (migrado de Notion 2026-10-27) ================== */
+// Valores guardados en inglés (como venían de Notion); se muestran en español.
+const CATEGORIAS_MANT = {"Plumbing":"Plomería","Electrical":"Electricidad","HVAC":"Aire acondicionado","Appliance":"Electrodomésticos","Structural":"Estructura","Painting":"Pintura","Pest Control":"Fumigación","Other":"Otro"};
+let inv_mant = [], mantListo = null;
+let propMant = 0;                       // 0 = todas las propiedades
+let anioMant = new Date().getFullYear();
+
+function esc(t){ return String(t ?? "").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function puedeEditarMant(){ return usuario==="Jorge" || usuario==="Mercedes"; } // Diego: solo consulta
+function nombreCortoProp(p){
+  if(!p) return "—";
+  if(p.nickname) return p.nickname;
+  if(/TerraSol/i.test(p.name)) return "TerraSol";
+  return p.name.replace("El Botánico - ","");
+}
+function dinero(n){ return "$"+(Number(n)||0).toLocaleString("es-PA",{minimumFractionDigits:2, maximumFractionDigits:2}); }
+function fechaMant(s){ const d=aDate(s); return d.getDate()+" "+MESES[d.getMonth()].slice(0,3)+" "+d.getFullYear(); }
+
+async function cargarMant(){
+  try{ inv_mant = await apiInv("/api/maintenance"); }
+  catch(e){ mantListo=null; toast("No se pudo cargar el mantenimiento"); console.error(e); }
+}
+async function verMantenimiento(){
+  await asegurarInventario();               // propiedades y proveedores
+  if(!mantListo) mantListo = cargarMant();
+  await mantListo;
+  const sel = document.getElementById("filtroCatMant");
+  if(!sel.options.length){
+    sel.innerHTML = '<option value="">Todas las categorías</option>' +
+      Object.entries(CATEGORIAS_MANT).map(([v,l])=>`<option value="${v}">${l}</option>`).join("");
+  }
+  document.getElementById("btnNuevoMant").style.display = puedeEditarMant() ? "" : "none";
+  renderMantenimiento();
+}
+function cambiarAnioMant(n){ anioMant += n; renderMantenimiento(); }
+function elegirPropMant(id){ propMant = id; renderMantenimiento(); }
+
+function renderMantenimiento(){
+  // Resumen del año por propiedad
+  document.getElementById("tituloAnioMant").textContent = "Costos " + anioMant;
+  const delAnio = inv_mant.filter(m => m.date && m.date.startsWith(String(anioMant)));
+  let filas = "", totN = 0, totC = 0;
+  for(const p of inv_properties){
+    const xs = delAnio.filter(m=>m.property_id===p.id);
+    if(!xs.length) continue;
+    const c = xs.reduce((a,m)=>a+(m.total_cost||0),0);
+    totN += xs.length; totC += c;
+    filas += `<tr><td>${esc(nombreCortoProp(p))}</td><td>${xs.length}</td><td>${dinero(c)}</td></tr>`;
+  }
+  document.getElementById("resumenMant").innerHTML = filas
+    ? filas + `<tr><td>Total</td><td>${totN}</td><td>${dinero(totC)}</td></tr>`
+    : `<tr><td colspan="3" class="vacio">Sin trabajos en ${anioMant}</td></tr>`;
+
+  // Filtro por propiedad
+  document.getElementById("segPropMant").innerHTML =
+    `<button class="${propMant===0?'activo':''}" onclick="elegirPropMant(0)">Todas</button>` +
+    inv_properties.map(p=>`<button class="${p.id===propMant?'activo':''}" onclick="elegirPropMant(${p.id})">${esc(nombreCortoProp(p))}</button>`).join("");
+
+  // Lista
+  const cat = document.getElementById("filtroCatMant").value;
+  const lista = inv_mant.filter(m => (!propMant || m.property_id===propMant) && (!cat || m.category===cat));
+  document.getElementById("listaMant").innerHTML = lista.length ? lista.map(filaMant).join("") : '<div class="vacio">Sin trabajos registrados</div>';
+}
+function filaMant(m){
+  const prop = inv_properties.find(p=>p.id===m.property_id);
+  const det = [fechaMant(m.date), nombreCortoProp(prop), m.provider_name || (m.notes ? null : "Sin proveedor")].filter(Boolean).map(esc).join(" · ");
+  const partes = [];
+  if(m.labor_cost) partes.push("Mano de obra "+dinero(m.labor_cost));
+  if(m.material_cost) partes.push("Materiales "+dinero(m.material_cost));
+  return `<div class="fila-mant" onclick="abrirFormMant(${m.id})">
+    <div class="cab"><b>${esc(m.title)}</b><span class="monto">${m.total_cost ? dinero(m.total_cost) : "—"}</span></div>
+    <div class="det">${det} ${m.category ? `<span class="etq cat-mant">${esc(CATEGORIAS_MANT[m.category]||m.category)}</span>` : ""}</div>
+    ${m.appliance ? `<div class="det">🔌 ${esc(m.appliance)}</div>` : ""}
+    ${partes.length ? `<div class="det">${partes.join(" · ")}</div>` : ""}
+    ${m.notes ? `<div class="notas">📝 ${esc(m.notes)}</div>` : ""}
+    ${m.receipt_url ? `<div class="det"><a href="${esc(m.receipt_url)}" target="_blank" onclick="event.stopPropagation()">🧾 Ver recibo</a></div>` : ""}
+  </div>`;
+}
+
+function abrirFormMant(id){
+  const m = id ? inv_mant.find(x=>x.id===id) : null;
+  if(!puedeEditarMant()){
+    if(m) abrirHoja(`<h2>${esc(m.title)}</h2>${filaMant(m).replace('onclick="abrirFormMant('+m.id+')"','')}<p class="nota-ayuda">Solo Jorge y Mercedes pueden editar.</p>`);
+    return;
+  }
+  const opt = (v,l,sel)=>`<option value="${v}" ${sel?'selected':''}>${esc(l)}</option>`;
+  const propDef = m ? m.property_id : (propMant || "");
+  abrirHoja(`
+    <h2>${m ? "Editar trabajo" : "Registrar trabajo"}</h2>
+    <label class="campo">Trabajo realizado</label>
+    <input type="text" id="fm-titulo" value="${esc(m?.title)}" placeholder="Ej. Reparación A/C habitación 2">
+    <label class="campo">Fecha</label>
+    <input type="date" id="fm-fecha" value="${m?.date || hoyStr()}">
+    <label class="campo">Propiedad</label>
+    <select id="fm-prop">${opt("", "—", !propDef)}${inv_properties.map(p=>opt(p.id, nombreCortoProp(p), p.id===propDef)).join("")}</select>
+    <label class="campo">Categoría</label>
+    <select id="fm-cat">${Object.entries(CATEGORIAS_MANT).map(([v,l])=>opt(v,l,(m?.category||"Other")===v)).join("")}</select>
+    <label class="campo">Proveedor</label>
+    <select id="fm-prov">${opt("", "— Ninguno / lo hice yo —", !m?.provider_id)}${inv_providers.map(p=>opt(p.id, p.name, p.id===m?.provider_id)).join("")}</select>
+    <label class="campo">Equipo / electrodoméstico (opcional)</label>
+    <input type="text" id="fm-equipo" value="${esc(m?.appliance)}" placeholder="Ej. A/C Sala, Lavadora">
+    <div style="display:flex; gap:8px">
+      <div style="flex:1"><label class="campo">Mano de obra ($)</label><input type="number" inputmode="decimal" step="0.01" id="fm-mo" value="${m?.labor_cost ?? ''}"></div>
+      <div style="flex:1"><label class="campo">Materiales ($)</label><input type="number" inputmode="decimal" step="0.01" id="fm-mat" value="${m?.material_cost ?? ''}"></div>
+    </div>
+    <label class="campo">Notas</label>
+    <textarea id="fm-notas">${esc(m?.notes)}</textarea>
+    <label class="campo">Enlace al recibo (opcional)</label>
+    <input type="url" id="fm-recibo" value="${esc(m?.receipt_url)}" placeholder="https://… (foto en Drive/iCloud)">
+    <button class="btn" onclick="guardarMant(${id||'null'})">Guardar</button>
+    ${m ? `<button class="btn sec" onclick="archivarMant(${m.id})">🗄️ Archivar este registro</button>` : ""}
+  `);
+}
+async function guardarMant(id){
+  const num = v => v==="" ? null : Number(v);
+  const body = {
+    title: document.getElementById("fm-titulo").value.trim(),
+    date: document.getElementById("fm-fecha").value,
+    property_id: num(document.getElementById("fm-prop").value),
+    category: document.getElementById("fm-cat").value,
+    provider_id: num(document.getElementById("fm-prov").value),
+    appliance: document.getElementById("fm-equipo").value.trim(),
+    labor_cost: num(document.getElementById("fm-mo").value),
+    material_cost: num(document.getElementById("fm-mat").value),
+    notes: document.getElementById("fm-notas").value.trim(),
+    receipt_url: document.getElementById("fm-recibo").value.trim(),
+    created_by: usuario || null,
+  };
+  if(!body.title || !body.date){ toast("El trabajo y la fecha son obligatorios"); return; }
+  try{
+    if(id) await apiInv("/api/maintenance/"+id, {method:"PATCH", body: JSON.stringify(body)});
+    else await apiInv("/api/maintenance", {method:"POST", body: JSON.stringify(body)});
+    cerrarHoja(); toast("Guardado ✓");
+    mantListo = cargarMant(); await mantListo; renderMantenimiento();
+  }catch(e){ toast("Error al guardar"); }
+}
+async function archivarMant(id){
+  if(!confirm("¿Archivar este registro? Dejará de aparecer en la lista (no se borra).")) return;
+  try{
+    await apiInv("/api/maintenance/"+id, {method:"PATCH", body: JSON.stringify({archived:1})});
+    cerrarHoja(); toast("Archivado");
+    mantListo = cargarMant(); await mantListo; renderMantenimiento();
+  }catch(e){ toast("Error al archivar"); }
+}
+// Historial de un proveedor (desde su tarjeta en Proveedores)
+async function verTrabajosProveedor(provId){
+  if(!mantListo) mantListo = cargarMant();
+  await mantListo;
+  const prov = inv_providers.find(p=>p.id===provId);
+  const xs = inv_mant.filter(m=>m.provider_id===provId);
+  const total = xs.reduce((a,m)=>a+(m.total_cost||0),0);
+  abrirHoja(`<h2>Trabajos de ${esc(prov?.name)}</h2>
+    ${xs.length ? `<p class="nota-ayuda">${xs.length} trabajo${xs.length===1?"":"s"} · Total ${dinero(total)}</p>` +
+      xs.map(m=>filaMant(m).replace('onclick="abrirFormMant('+m.id+')"','')).join("")
+    : '<div class="vacio">Sin trabajos registrados con este proveedor</div>'}`);
+}
+
 /* ================== NAVEGACIÓN ================== */
 function irA(v){
   const vistasCalendario=["cal","lleg","huecos","stats","ajustes"];
@@ -1227,11 +1420,12 @@ function irA(v){
   if(v==="compras") verCompras();
   if(v==="maleta") verMaleta();
   if(v==="prov") verProveedores();
+  if(v==="mant") verMantenimiento();
 }
 function pintarTodo(){
   const activa=document.querySelector("nav button.activo");
   const v=activa?activa.dataset.v:"cal";
-  if(v==="ajustes"||v==="stock"||v==="compras"||v==="maleta"||v==="prov") return; // no repintar estas vistas por una sincronización de calendario
+  if(v==="ajustes"||v==="stock"||v==="compras"||v==="maleta"||v==="prov"||v==="mant") return; // no repintar estas vistas por una sincronización de calendario
   irA(v);
 }
 function toast(m){
