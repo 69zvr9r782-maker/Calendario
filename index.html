@@ -109,6 +109,14 @@
   .etq.cat-mant{background:#eef1f5; color:#4a5866; font-size:10px; padding:2px 7px;}
   .acciones .trabajos{background:#fff4d6; color:#8a6d00;}
   .filtros-mant{display:flex; gap:8px;}
+  .etq.eq-activo{background:#e2f5ea; color:#1b7a45;}
+  .etq.eq-reparar{background:#fdeae6; color:#b6402a;}
+  .etq.eq-reemplazado{background:#eef1f5; color:#6b7785;}
+  .etq.gar-ok{background:#e6edf5; color:var(--azul);}
+  .etq.gar-vencida{background:#fff4d6; color:#8a6d00;}
+  .checks-eq{max-height:180px; overflow-y:auto; border:1px solid #dde3ea; border-radius:10px; padding:6px 10px; margin-top:4px;}
+  .checks-eq label{display:flex; align-items:center; gap:8px; font-size:13.5px; padding:5px 0;}
+  .checks-eq input{width:auto; margin:0;}
   .filtros-mant select{margin-top:0;}
   .buscar{width:100%; padding:10px 12px; border:1px solid #d6dee6; border-radius:10px; font-size:13.5px; margin-bottom:10px; background:#fbfcfe;}
   /* Hoja de detalle */
@@ -267,6 +275,11 @@
 
   <!-- VISTA MANTENIMIENTO -->
   <section id="v-mant" style="display:none">
+    <div class="segmento" id="segVistaMant">
+      <button class="activo" onclick="elegirVistaMant('trab')">🛠️ Trabajos</button>
+      <button onclick="elegirVistaMant('eq')">🔌 Electrodomésticos</button>
+    </div>
+    <div id="mantTrabajos">
     <div class="carta">
       <div class="barraMes">
         <button onclick="cambiarAnioMant(-1)">‹</button>
@@ -285,6 +298,22 @@
       </div>
       <div id="listaMant" style="margin-top:6px"></div>
       <button class="btn" id="btnNuevoMant" onclick="abrirFormMant()">➕ Registrar trabajo</button>
+    </div>
+    </div>
+    <div id="mantEquipos" style="display:none">
+      <div class="carta">
+        <div class="segmento" id="segPropEq"></div>
+        <div class="filtros-mant">
+          <select id="filtroEstadoEq" onchange="renderEquipos()">
+            <option value="">Todos los estados</option>
+            <option value="Activo">Activo</option>
+            <option value="Necesita reparación">Necesita reparación</option>
+            <option value="Reemplazado">Reemplazado</option>
+          </select>
+        </div>
+        <div id="listaEq" style="margin-top:6px"></div>
+        <button class="btn" id="btnNuevoEq" onclick="abrirFormEq()">➕ Agregar electrodoméstico</button>
+      </div>
     </div>
   </section>
 
@@ -1250,6 +1279,8 @@ async function guardarProveedor(id){
 // Valores guardados en inglés (como venían de Notion); se muestran en español.
 const CATEGORIAS_MANT = {"Plumbing":"Plomería","Electrical":"Electricidad","HVAC":"Aire acondicionado","Appliance":"Electrodomésticos","Structural":"Estructura","Painting":"Pintura","Pest Control":"Fumigación","Other":"Otro"};
 let inv_mant = [], mantListo = null;
+let inv_eq = [], eqListo = null;        // electrodomésticos (migrado de Notion 2026-11-02)
+let vistaMant = "trab", propEq = 0;
 let propMant = 0;                       // 0 = todas las propiedades
 let anioMant = new Date().getFullYear();
 
@@ -1268,10 +1299,17 @@ async function cargarMant(){
   try{ inv_mant = await apiInv("/api/maintenance"); }
   catch(e){ mantListo=null; toast("No se pudo cargar el mantenimiento"); console.error(e); }
 }
+async function cargarEq(){
+  try{ inv_eq = await apiInv("/api/appliances"); }
+  catch(e){ eqListo=null; toast("No se pudieron cargar los electrodomésticos"); console.error(e); }
+}
 async function verMantenimiento(){
   await asegurarInventario();               // propiedades y proveedores
   if(!mantListo) mantListo = cargarMant();
-  await mantListo;
+  if(!eqListo) eqListo = cargarEq();
+  await Promise.all([mantListo, eqListo]);
+  document.getElementById("btnNuevoEq").style.display = puedeEditarMant() ? "" : "none";
+  if(vistaMant==="eq") renderEquipos();
   const sel = document.getElementById("filtroCatMant");
   if(!sel.options.length){
     sel.innerHTML = '<option value="">Todas las categorías</option>' +
@@ -1340,13 +1378,13 @@ function abrirFormMant(id){
     <label class="campo">Fecha</label>
     <input type="date" id="fm-fecha" value="${m?.date || hoyStr()}">
     <label class="campo">Propiedad</label>
-    <select id="fm-prop">${opt("", "—", !propDef)}${inv_properties.map(p=>opt(p.id, nombreCortoProp(p), p.id===propDef)).join("")}</select>
+    <select id="fm-prop" onchange="refrescarChecksEq()">${opt("", "—", !propDef)}${inv_properties.map(p=>opt(p.id, nombreCortoProp(p), p.id===propDef)).join("")}</select>
     <label class="campo">Categoría</label>
     <select id="fm-cat">${Object.entries(CATEGORIAS_MANT).map(([v,l])=>opt(v,l,(m?.category||"Other")===v)).join("")}</select>
     <label class="campo">Proveedor</label>
     <select id="fm-prov">${opt("", "— Ninguno / lo hice yo —", !m?.provider_id)}${inv_providers.map(p=>opt(p.id, p.name, p.id===m?.provider_id)).join("")}</select>
-    <label class="campo">Equipo / electrodoméstico (opcional)</label>
-    <input type="text" id="fm-equipo" value="${esc(m?.appliance)}" placeholder="Ej. A/C Sala, Lavadora">
+    <label class="campo">Electrodomésticos (opcional)</label>
+    <div class="checks-eq" id="fm-equipos">${checksEquipos(propDef, idsEq(m))}</div>
     <div style="display:flex; gap:8px">
       <div style="flex:1"><label class="campo">Mano de obra ($)</label><input type="number" inputmode="decimal" step="0.01" id="fm-mo" value="${m?.labor_cost ?? ''}"></div>
       <div style="flex:1"><label class="campo">Materiales ($)</label><input type="number" inputmode="decimal" step="0.01" id="fm-mat" value="${m?.material_cost ?? ''}"></div>
@@ -1367,7 +1405,7 @@ async function guardarMant(id){
     property_id: num(document.getElementById("fm-prop").value),
     category: document.getElementById("fm-cat").value,
     provider_id: num(document.getElementById("fm-prov").value),
-    appliance: document.getElementById("fm-equipo").value.trim(),
+    appliance_ids: [...document.querySelectorAll("#fm-equipos input:checked")].map(x=>Number(x.value)),
     labor_cost: num(document.getElementById("fm-mo").value),
     material_cost: num(document.getElementById("fm-mat").value),
     notes: document.getElementById("fm-notas").value.trim(),
@@ -1379,7 +1417,7 @@ async function guardarMant(id){
     if(id) await apiInv("/api/maintenance/"+id, {method:"PATCH", body: JSON.stringify(body)});
     else await apiInv("/api/maintenance", {method:"POST", body: JSON.stringify(body)});
     cerrarHoja(); toast("Guardado ✓");
-    mantListo = cargarMant(); await mantListo; renderMantenimiento();
+    mantListo = cargarMant(); eqListo = cargarEq(); await Promise.all([mantListo, eqListo]); renderMantenimiento();
   }catch(e){ toast("Error al guardar"); }
 }
 async function archivarMant(id){
@@ -1401,6 +1439,135 @@ async function verTrabajosProveedor(provId){
     ${xs.length ? `<p class="nota-ayuda">${xs.length} trabajo${xs.length===1?"":"s"} · Total ${dinero(total)}</p>` +
       xs.map(m=>filaMant(m).replace('onclick="abrirFormMant('+m.id+')"','')).join("")
     : '<div class="vacio">Sin trabajos registrados con este proveedor</div>'}`);
+}
+
+/* ================== ELECTRODOMÉSTICOS (dentro de Mantenimiento, 2026-11-02) ================== */
+const ESTADOS_EQ = {"Activo":"eq-activo","Necesita reparación":"eq-reparar","Reemplazado":"eq-reemplazado"};
+function idsEq(m){ return m && m.appliance_ids ? String(m.appliance_ids).split(",").map(Number) : []; }
+function checksEquipos(propId, marcados){
+  const xs = inv_eq.filter(a => (!propId || a.property_id===Number(propId)) || marcados.includes(a.id));
+  if(!xs.length) return '<div class="nota-ayuda">No hay electrodomésticos registrados para esta propiedad</div>';
+  return xs.map(a=>`<label><input type="checkbox" value="${a.id}" ${marcados.includes(a.id)?'checked':''}> ${esc(a.name)}</label>`).join("");
+}
+function refrescarChecksEq(){
+  const cont = document.getElementById("fm-equipos"); if(!cont) return;
+  const marcados = [...cont.querySelectorAll("input:checked")].map(x=>Number(x.value));
+  cont.innerHTML = checksEquipos(document.getElementById("fm-prop").value, marcados);
+}
+function elegirVistaMant(v){
+  vistaMant = v;
+  document.querySelectorAll("#segVistaMant button").forEach((b,i)=>b.classList.toggle("activo", (i===0)===(v==="trab")));
+  document.getElementById("mantTrabajos").style.display = v==="trab" ? "" : "none";
+  document.getElementById("mantEquipos").style.display = v==="eq" ? "" : "none";
+  if(v==="eq") renderEquipos();
+}
+function elegirPropEq(id){ propEq = id; renderEquipos(); }
+function estadoGarantia(a){
+  if(!a.warranty_expiry) return "";
+  const vencida = a.warranty_expiry < hoyStr();
+  return `<span class="etq ${vencida?'gar-vencida':'gar-ok'}">${vencida?'Garantía vencida':'Garantía hasta '+fechaMant(a.warranty_expiry)}</span>`;
+}
+function renderEquipos(){
+  const conEq = inv_properties.filter(p => inv_eq.some(a=>a.property_id===p.id));
+  document.getElementById("segPropEq").innerHTML =
+    `<button class="${propEq===0?'activo':''}" onclick="elegirPropEq(0)">Todas</button>` +
+    inv_properties.map(p=>`<button class="${p.id===propEq?'activo':''}" onclick="elegirPropEq(${p.id})">${esc(nombreCortoProp(p))}</button>`).join("");
+  const est = document.getElementById("filtroEstadoEq").value;
+  const lista = inv_eq.filter(a => (!propEq || a.property_id===propEq) && (!est || a.status===est));
+  if(!lista.length){ document.getElementById("listaEq").innerHTML = '<div class="vacio">Sin electrodomésticos registrados</div>'; return; }
+  // Agrupar por propiedad cuando se ven todas
+  let html = "";
+  const grupos = propEq ? [inv_properties.find(p=>p.id===propEq)] : conEq;
+  for(const p of grupos){
+    const xs = lista.filter(a=>a.property_id===p?.id);
+    if(!xs.length) continue;
+    if(!propEq) html += `<h3 class="secc">${esc(nombreCortoProp(p))}</h3>`;
+    html += xs.map(filaEq).join("");
+  }
+  const sinProp = lista.filter(a=>!a.property_id);
+  if(!propEq && sinProp.length) html += `<h3 class="secc">Sin propiedad</h3>` + sinProp.map(filaEq).join("");
+  document.getElementById("listaEq").innerHTML = html;
+}
+function filaEq(a){
+  const det = [a.brand_model, a.purchase_date ? "Comprado "+fechaMant(a.purchase_date) : null, a.purchased_from].filter(Boolean).map(esc).join(" · ");
+  const rep = a.repair_count
+    ? `🛠️ ${a.repair_count} trabajo${a.repair_count===1?"":"s"} · ${dinero(a.repair_total)} · último ${fechaMant(a.last_repair)}`
+    : "Sin reparaciones registradas";
+  return `<div class="fila-mant" onclick="verEquipo(${a.id})">
+    <div class="cab"><b>${esc(a.name)}</b><span class="monto">${a.purchase_cost ? dinero(a.purchase_cost) : ""}</span></div>
+    <div class="det"><span class="etq ${ESTADOS_EQ[a.status]||'eq-activo'}">${esc(a.status||"Activo")}</span> ${estadoGarantia(a)}</div>
+    ${det ? `<div class="det">${det}</div>` : ""}
+    <div class="det">${rep}</div>
+    ${a.notes ? `<div class="notas">📝 ${esc(a.notes)}</div>` : ""}
+  </div>`;
+}
+// Ficha: datos + historial de trabajos
+async function verEquipo(id){
+  const a = inv_eq.find(x=>x.id===id); if(!a) return;
+  const xs = inv_mant.filter(m => idsEq(m).includes(id));
+  abrirHoja(`<h2>${esc(a.name)}</h2>
+    ${filaEq(a).replace('onclick="verEquipo('+a.id+')"','')}
+    ${a.manual_url ? `<p class="det"><a href="${esc(a.manual_url)}" target="_blank">📄 Ver manual / recibo</a></p>` : ""}
+    ${puedeEditarMant() ? `<button class="btn sec" onclick="abrirFormEq(${a.id})">✏️ Editar datos</button>` : '<p class="nota-ayuda">Solo Jorge y Mercedes pueden editar.</p>'}
+    <h3 class="secc">Historial de trabajos</h3>
+    ${xs.length ? xs.map(m=>filaMant(m).replace('onclick="abrirFormMant('+m.id+')"','')).join("") : '<div class="vacio">Sin trabajos registrados</div>'}
+    ${xs.some(m=>idsEq(m).length>1) ? '<p class="nota-ayuda">Si un trabajo cubrió varios equipos, su costo total aparece en cada uno.</p>' : ""}`);
+}
+function abrirFormEq(id){
+  if(!puedeEditarMant()) return;
+  const a = id ? inv_eq.find(x=>x.id===id) : null;
+  const opt = (v,l,sel)=>`<option value="${v}" ${sel?'selected':''}>${esc(l)}</option>`;
+  const propDef = a ? a.property_id : (propEq || "");
+  abrirHoja(`
+    <h2>${a ? "Editar electrodoméstico" : "Agregar electrodoméstico"}</h2>
+    <label class="campo">Nombre</label>
+    <input type="text" id="fe-nom" value="${esc(a?.name)}" placeholder="Ej. A/C 14H Habitación">
+    <label class="campo">Propiedad</label>
+    <select id="fe-prop">${opt("", "—", !propDef)}${inv_properties.map(p=>opt(p.id, nombreCortoProp(p), p.id===propDef)).join("")}</select>
+    <label class="campo">Estado</label>
+    <select id="fe-est">${Object.keys(ESTADOS_EQ).map(v=>opt(v,v,(a?.status||"Activo")===v)).join("")}</select>
+    <label class="campo">Marca / modelo</label>
+    <input type="text" id="fe-marca" value="${esc(a?.brand_model)}">
+    <div style="display:flex; gap:8px">
+      <div style="flex:1"><label class="campo">Fecha de compra</label><input type="date" id="fe-fcompra" value="${a?.purchase_date || ''}"></div>
+      <div style="flex:1"><label class="campo">Costo ($)</label><input type="number" inputmode="decimal" step="0.01" id="fe-costo" value="${a?.purchase_cost ?? ''}"></div>
+    </div>
+    <label class="campo">Comprado en</label>
+    <input type="text" id="fe-tienda" value="${esc(a?.purchased_from)}">
+    <label class="campo">Garantía hasta</label>
+    <input type="date" id="fe-gar" value="${a?.warranty_expiry || ''}">
+    <label class="campo">Enlace al manual o recibo (opcional)</label>
+    <input type="url" id="fe-manual" value="${esc(a?.manual_url)}" placeholder="https://… (Drive/iCloud)">
+    <label class="campo">Notas</label>
+    <textarea id="fe-notas">${esc(a?.notes)}</textarea>
+    <button class="btn" onclick="guardarEq(${id||'null'})">Guardar</button>
+    ${a ? `<button class="btn sec" onclick="archivarEq(${a.id})">🗄️ Archivar este electrodoméstico</button>` : ""}
+  `);
+}
+async function guardarEq(id){
+  const num = v => v==="" ? null : Number(v);
+  const val = k => document.getElementById(k).value.trim();
+  const body = {
+    name: val("fe-nom"), property_id: num(val("fe-prop")), status: val("fe-est"),
+    brand_model: val("fe-marca"), purchase_date: val("fe-fcompra"), purchase_cost: num(val("fe-costo")),
+    purchased_from: val("fe-tienda"), warranty_expiry: val("fe-gar"), manual_url: val("fe-manual"),
+    notes: val("fe-notas"), created_by: usuario || null,
+  };
+  if(!body.name){ toast("El nombre es obligatorio"); return; }
+  try{
+    if(id) await apiInv("/api/appliances/"+id, {method:"PATCH", body: JSON.stringify(body)});
+    else await apiInv("/api/appliances", {method:"POST", body: JSON.stringify(body)});
+    cerrarHoja(); toast("Guardado ✓");
+    eqListo = cargarEq(); await eqListo; renderEquipos();
+  }catch(e){ toast("Error al guardar"); }
+}
+async function archivarEq(id){
+  if(!confirm("¿Archivar este electrodoméstico? Dejará de aparecer en la lista (no se borra, y su historial se conserva).")) return;
+  try{
+    await apiInv("/api/appliances/"+id, {method:"PATCH", body: JSON.stringify({archived:1})});
+    cerrarHoja(); toast("Archivado");
+    eqListo = cargarEq(); await eqListo; renderEquipos();
+  }catch(e){ toast("Error al archivar"); }
 }
 
 /* ================== NAVEGACIÓN ================== */
