@@ -126,6 +126,17 @@
   #hoja h2{margin:0 0 10px; font-size:16px; text-transform:capitalize;}
   .aviso{background:#fff8e1; border:1px solid #ffe08a; color:#7a5c00; font-size:12.5px; padding:8px 10px; border-radius:8px; margin-bottom:10px; display:none;}
   #toast{position:fixed; bottom:86px; left:50%; transform:translateX(-50%); background:#22303e; color:#fff; font-size:13px; padding:9px 16px; border-radius:20px; z-index:60; display:none; max-width:88%; text-align:center;}
+  /* Finanzas (2026-11-10) */
+  .kpis{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+  .kpi{background:#f4f7fb; border-radius:10px; padding:10px;}
+  .kpi small{display:block; font-size:11px; color:var(--gris); font-weight:600; margin-bottom:2px;}
+  .kpi b{font-size:18px; color:var(--azul);}
+  .kpi b.neg{color:var(--apt1);}
+  table.stats td.num, table.stats th.num{text-align:right; white-space:nowrap;}
+  table.stats tr.fut td{color:var(--gris); font-style:italic;}
+  table.stats tr.clic{cursor:pointer;}
+  table.stats.sin-total tr:last-child td{font-weight:400;}
+  table.stats td.neg{color:var(--apt1);}
 </style>
 </head>
 <body>
@@ -317,6 +328,11 @@
     </div>
   </section>
 
+  <!-- VISTA FINANZAS (2026-11-10) — resumen de Contabilidad Aptos.xlsx, protegido con PIN -->
+  <section id="v-fin" style="display:none">
+    <div id="finContenido"></div>
+  </section>
+
   <!-- CONFIGURACIÓN INICIAL -->
   <section id="v-setup" style="display:none">
     <div class="carta">
@@ -342,6 +358,7 @@
   <button data-v="maleta" onclick="irA('maleta')"><span class="ico">🎒</span>Maleta</button>
   <button data-v="prov" onclick="irA('prov')"><span class="ico">🔧</span>Provee.</button>
   <button data-v="mant" onclick="irA('mant')"><span class="ico">🛠️</span>Manten.</button>
+  <button data-v="fin" id="navFin" style="display:none" onclick="irA('fin')"><span class="ico">💰</span>Finanzas</button>
   <button data-v="ajustes" onclick="irA('ajustes')"><span class="ico">⚙️</span>Ajustes</button>
 </nav>
 
@@ -910,6 +927,9 @@ function elegirUsuario(n){
   usuario = n;
   localStorage.setItem("usuario", n);
   document.getElementById("quienSoy").textContent = n;
+  finDatos = null; actualizarNavFin();  // al cambiar de usuario, Finanzas se vuelve a cerrar
+  const act=document.querySelector("nav button.activo");
+  if(act && act.dataset.v==="fin"){ if(puedeVerFin()) verFinanzas(); else irA("cal"); }
   cerrarHoja();
 }
 
@@ -1570,6 +1590,185 @@ async function archivarEq(id){
   }catch(e){ toast("Error al archivar"); }
 }
 
+/* ================== FINANZAS (2026-11-10) ================== */
+// Resumen de Contabilidad Aptos.xlsx (solo totales). El servidor exige el PIN; aquí no se guarda en ningún lado.
+const APTS_FIN = ["H","I","J"];
+let finDatos = null, finActualizado = "", finAnio = "", finVista = "res";
+
+function puedeVerFin(){ return usuario==="Jorge" || usuario==="Mercedes"; }
+function actualizarNavFin(){ const b=document.getElementById("navFin"); if(b) b.style.display = puedeVerFin() ? "" : "none"; }
+function pctFin(x){ return (x==null || isNaN(x)) ? "—" : (x*100).toFixed(1)+"%"; }
+function dinero0(n){ return (n<0?"-":"")+"$"+Math.round(Math.abs(Number(n)||0)).toLocaleString("es-PA"); }
+function mesCortoFin(ym){ const m=MESES[Number(ym.slice(5,7))-1]; return m.charAt(0).toUpperCase()+m.slice(1,3); }
+function aniosFin(){ return [...new Set(finDatos.pyg_mensual.map(m=>m.mes.slice(0,4)))].sort(); }
+function sumaFin(arr,f){ return arr.reduce((a,x)=>a+(Number(f(x))||0),0); }
+
+function verFinanzas(){
+  const c=document.getElementById("finContenido");
+  if(!puedeVerFin()){ c.innerHTML=`<div class="carta vacio">Esta sección es solo para Jorge y Mercedes.</div>`; return; }
+  if(!finDatos){ pedirPinFin(); return; }
+  pintarFinanzas();
+}
+function pedirPinFin(msg){
+  document.getElementById("finContenido").innerHTML = `
+    <div class="carta">
+      <h3 class="secc" style="margin-top:2px">🔒 Finanzas</h3>
+      <label class="campo">PIN</label>
+      <input type="password" id="finPinInp" autocomplete="off" autocapitalize="none" onkeydown="if(event.key==='Enter')entrarFin()">
+      ${msg?`<p class="nota-ayuda bajo">${esc(msg)}</p>`:""}
+      <button class="btn" onclick="entrarFin()">Entrar</button>
+      <p class="nota-ayuda">El PIN no se guarda en el teléfono: se pide cada vez que se abre la app. Después de 5 intentos fallidos, Finanzas se bloquea 15 minutos.</p>
+    </div>`;
+}
+async function entrarFin(){
+  const inp=document.getElementById("finPinInp"); const pin=(inp&&inp.value||"").trim();
+  if(!pin) return;
+  try{
+    const res=await fetch(API_INV+"/api/finanzas",{headers:{"X-Finanzas-Pin":pin}});
+    const j=await res.json().catch(()=>({}));
+    if(!res.ok){ pedirPinFin(j.error || ("Error "+res.status)); return; }
+    finDatos=j.data; finActualizado=j.updated_at||"";
+    const anios=aniosFin(), actual=String(new Date().getFullYear());
+    finAnio = anios.includes(actual) ? actual : anios[anios.length-1];
+    pintarFinanzas();
+  }catch(e){ pedirPinFin("No se pudo conectar con el servidor"); }
+}
+function cerrarFinanzas(){ finDatos=null; verFinanzas(); }
+function cambiarAnioFin(d){ const a=aniosFin(), i=a.indexOf(finAnio)+d; if(i>=0 && i<a.length){ finAnio=a[i]; pintarFinanzas(); } }
+function vistaFin(v){ finVista=v; pintarFinanzas(); }
+
+function pintarFinanzas(){
+  const anios=aniosFin(), i=anios.indexOf(finAnio);
+  const hoyMes=hoyStr().slice(0,7);
+  const pyg=finDatos.pyg_mensual.filter(m=>m.mes.startsWith(finAnio));
+  const occ=finDatos.ocupacion_mensual.filter(m=>m.mes.startsWith(finAnio));
+  const occPas=occ.filter(m=>m.mes<hoyMes);
+  const seg=[["res","Resumen"],["mes","Meses"],["ocu","Ocupación"],["inv","Inversión"]]
+    .map(([k,t])=>`<button class="${finVista===k?'activo':''}" onclick="vistaFin('${k}')">${t}</button>`).join("");
+  let h=`<div class="carta">
+      <div class="barraMes">
+        <button onclick="cambiarAnioFin(-1)" ${i<=0?'style="visibility:hidden"':''}>‹</button>
+        <b>${finAnio}</b>
+        <button onclick="cambiarAnioFin(1)" ${i>=anios.length-1?'style="visibility:hidden"':''}>›</button>
+      </div>
+      <div class="segmento">${seg}</div>`;
+  if(finVista==="res") h+=finResumen(pyg,occPas);
+  if(finVista==="mes") h+=finMeses(pyg);
+  if(finVista==="ocu") h+=finOcupacion(occ,hoyMes);
+  if(finVista==="inv") h+=finInversion();
+  const act = finActualizado ? fechaMant(finActualizado.slice(0,10)) : "—";
+  h+=`<p class="nota-ayuda">Fuente: Contabilidad Aptos.xlsx · actualizado ${act}</p>
+      <button class="btn sec" onclick="cerrarFinanzas()">🔒 Cerrar Finanzas</button></div>`;
+  document.getElementById("finContenido").innerHTML=h;
+}
+
+function periodoFin(pyg){
+  if(!pyg.length) return "";
+  const a=pyg[0].mes, b=pyg[pyg.length-1].mes;
+  return pyg.length===12 ? "Año completo" : (mesCortoFin(a)+"–"+mesCortoFin(b)+" ("+pyg.length+" meses)");
+}
+function occAptoFin(occ,a){
+  const n=sumaFin(occ,m=>m.aptos[a].noches), d=sumaFin(occ,m=>m.aptos[a].disponibles), f=sumaFin(occ,m=>m.aptos[a].noches_familia);
+  const r=sumaFin(occ,m=>m.aptos[a].ingreso - m.aptos[a].ingreso_cancelaciones);
+  return {n,d,f,r};
+}
+function finResumen(pyg,occ){
+  if(!pyg.length) return `<div class="vacio">Sin datos para ${finAnio}</div>`;
+  const ing=sumaFin(pyg,m=>m.total_ingresos), gas=sumaFin(pyg,m=>m.total_especificos+m.total_generales), neto=sumaFin(pyg,m=>m.neto);
+  const roi=neto/pyg.length*12/finDatos.inversion.base;
+  const t={n:0,d:0,f:0,r:0}, por={};
+  for(const a of APTS_FIN){ por[a]=occAptoFin(occ,a); for(const k in t) t[k]+=por[a][k]; }
+  let h=`<h3 class="secc" style="margin-top:4px">${periodoFin(pyg)}</h3>
+    <div class="kpis">
+      <div class="kpi"><small>Ingresos</small><b>${dinero0(ing)}</b></div>
+      <div class="kpi"><small>Gastos</small><b>${dinero0(gas)}</b></div>
+      <div class="kpi"><small>Resultado neto</small><b class="${neto<0?'neg':''}">${dinero0(neto)}</b></div>
+      <div class="kpi"><small>Rendimiento anual</small><b>${pctFin(roi)}</b></div>
+      <div class="kpi"><small>Ocupación</small><b>${pctFin(t.d?t.n/t.d:null)}</b></div>
+      <div class="kpi"><small>Ingreso por noche</small><b>${(t.n-t.f)?dinero(t.r/(t.n-t.f)):"—"}</b></div>
+    </div>
+    <h3 class="secc">Por apartamento</h3>
+    <table class="stats"><thead><tr><th>Apto</th><th class="num">Ingresos</th><th class="num">Aporte*</th><th class="num">Ocup.</th><th class="num">$/noche</th></tr></thead><tbody>`;
+  for(const a of APTS_FIN){
+    const ingA=sumaFin(pyg,m=>m.ingresos[a]), apA=sumaFin(pyg,m=>m.aporte[a]), o=por[a];
+    h+=`<tr><td>14 ${a}</td><td class="num">${dinero0(ingA)}</td><td class="num">${dinero0(apA)}</td><td class="num">${pctFin(o.d?o.n/o.d:null)}</td><td class="num">${(o.n-o.f)?dinero(o.r/(o.n-o.f)):"—"}</td></tr>`;
+  }
+  h+=`<tr><td>Total</td><td class="num">${dinero0(ing)}</td><td class="num">${dinero0(sumaFin(pyg,m=>APTS_FIN.reduce((s,a)=>s+m.aporte[a],0)))}</td><td class="num">${pctFin(t.d?t.n/t.d:null)}</td><td class="num">${(t.n-t.f)?dinero(t.r/(t.n-t.f)):"—"}</td></tr></tbody></table>
+    <p class="nota-ayuda">*Aporte = ingresos del apartamento menos su luz y mantenimiento PH, antes de gastos generales. Rendimiento anual = resultado neto anualizado sobre ${dinero0(finDatos.inversion.base)}. La ocupación y el ingreso por noche cuentan solo meses ya cerrados; las estadías de Familia/Amigo ocupan noches pero no entran en el ingreso por noche.</p>`;
+  return h;
+}
+function finMeses(pyg){
+  if(!pyg.length) return `<div class="vacio">Sin datos para ${finAnio}</div>`;
+  let h=`<table class="stats"><thead><tr><th>Mes</th><th class="num">Ingresos</th><th class="num">Gastos</th><th class="num">Neto</th></tr></thead><tbody>`;
+  for(const m of pyg){
+    const g=m.total_especificos+m.total_generales;
+    h+=`<tr class="clic" onclick="detalleMesFin('${m.mes}')"><td>${mesCortoFin(m.mes)} ›</td><td class="num">${dinero0(m.total_ingresos)}</td><td class="num">${dinero0(g)}</td><td class="num ${m.neto<0?'neg':''}">${dinero0(m.neto)}</td></tr>`;
+  }
+  const ing=sumaFin(pyg,m=>m.total_ingresos), gas=sumaFin(pyg,m=>m.total_especificos+m.total_generales), neto=sumaFin(pyg,m=>m.neto);
+  h+=`<tr><td>Total</td><td class="num">${dinero0(ing)}</td><td class="num">${dinero0(gas)}</td><td class="num">${dinero0(neto)}</td></tr></tbody></table>
+    <p class="nota-ayuda">Toque un mes para ver el detalle de ingresos y gastos.</p>`;
+  return h;
+}
+function detalleMesFin(ym){
+  const m=finDatos.pyg_mensual.find(x=>x.mes===ym); if(!m) return;
+  const f=(l,v,b)=>`<tr><td>${b?'<b>'+l+'</b>':l}</td><td class="num">${b?'<b>'+dinero(v)+'</b>':dinero(v)}</td></tr>`;
+  let h=`<h2>${MESES[Number(ym.slice(5,7))-1]} ${ym.slice(0,4)}</h2><table class="stats sin-total"><tbody>`;
+  h+=`<tr><td colspan="2"><b>Ingresos</b></td></tr>`;
+  for(const a of APTS_FIN) h+=f("Apto 14 "+a, m.ingresos[a]);
+  h+=f("Total ingresos", m.total_ingresos, true);
+  h+=`<tr><td colspan="2"><b>Gastos por apartamento</b> <small style="color:var(--gris)">(luz y PH)</small></td></tr>`;
+  for(const a of APTS_FIN) h+=f("Apto 14 "+a, m.electricidad[a]+m.mantenimiento_ph[a]+(m.otros_especificos?m.otros_especificos[a]:0));
+  h+=`<tr><td colspan="2"><b>Gastos generales</b></td></tr>`;
+  const gen=Object.entries(m.generales).filter(([,v])=>v);
+  if(!gen.length) h+=`<tr><td colspan="2" style="color:var(--gris)">Ninguno</td></tr>`;
+  for(const [k,v] of gen) h+=f(esc(k), v);
+  h+=f("Total gastos", m.total_especificos+m.total_generales, true);
+  h+=`<tr><td><b>Resultado neto</b></td><td class="num ${m.neto<0?'neg':''}"><b>${dinero(m.neto)}</b></td></tr></tbody></table>
+    <button class="btn sec" onclick="cerrarHoja()">Cerrar</button>`;
+  abrirHoja(h);
+}
+function finOcupacion(occ,hoyMes){
+  if(!occ.length) return `<div class="vacio">Sin datos para ${finAnio}</div>`;
+  let h=`<table class="stats"><thead><tr><th>Mes</th>${APTS_FIN.map(a=>`<th class="num">14 ${a}</th>`).join("")}<th class="num">Total</th></tr></thead><tbody>`;
+  for(const m of occ){
+    const fut=m.mes>=hoyMes;
+    const n=sumaFin(APTS_FIN,a=>m.aptos[a].noches), d=sumaFin(APTS_FIN,a=>m.aptos[a].disponibles);
+    h+=`<tr class="${fut?'fut':''}"><td>${mesCortoFin(m.mes)}${fut?' *':''}</td>${APTS_FIN.map(a=>`<td class="num">${pctFin(m.aptos[a].ocupacion)}</td>`).join("")}<td class="num">${pctFin(d?n/d:null)}</td></tr>`;
+  }
+  const pas=occ.filter(m=>m.mes<hoyMes);
+  const tot=APTS_FIN.map(a=>occAptoFin(pas,a));
+  const N=sumaFin(tot,o=>o.n), D=sumaFin(tot,o=>o.d);
+  h+=`<tr><td>Año</td>${tot.map(o=>`<td class="num">${pctFin(o.d?o.n/o.d:null)}</td>`).join("")}<td class="num">${pctFin(D?N/D:null)}</td></tr></tbody></table>`;
+  if(occ.some(m=>m.mes>=hoyMes)) h+=`<p class="nota-ayuda">* Meses futuros: solo lo ya reservado. No entran en el total del año.</p>`;
+  const can=(finDatos.noches_por_canal||{})[finAnio];
+  if(can){
+    const tc=Object.values(can).reduce((a,b)=>a+b,0);
+    h+=`<h3 class="secc">Noches por canal</h3><table class="stats"><tbody>`;
+    for(const [k,v] of Object.entries(can)) h+=`<tr><td>${esc(k)}</td><td class="num">${v}</td><td class="num">${pctFin(tc?v/tc:null)}</td></tr>`;
+    h+=`<tr><td>Total</td><td class="num">${tc}</td><td class="num">100%</td></tr></tbody></table>
+      <p class="nota-ayuda">Incluye noches ya reservadas para lo que resta del año.</p>`;
+  }
+  return h;
+}
+function finInversion(){
+  const inv=finDatos.inversion, eq=inv.equipamiento_inicial||{};
+  const totEq=APTS_FIN.reduce((s,a)=>s+(eq[a]||0),0);
+  let h=`<h3 class="secc" style="margin-top:4px">Base de inversión</h3>
+    <div class="kpis"><div class="kpi"><small>Inversión base</small><b>${dinero0(inv.base)}</b></div>
+    <div class="kpi"><small>Equipamiento inicial</small><b>${dinero0(totEq)}</b></div></div>
+    <table class="stats" style="margin-top:8px"><thead><tr><th>Apto</th><th class="num">Equipamiento inicial</th></tr></thead><tbody>`;
+  for(const a of APTS_FIN) h+=`<tr><td>14 ${a}</td><td class="num">${dinero(eq[a]||0)}</td></tr>`;
+  h+=`<tr><td>Total</td><td class="num">${dinero(totEq)}</td></tr></tbody></table>
+    <h3 class="secc">Rendimiento por año</h3>
+    <table class="stats sin-total"><thead><tr><th>Año</th><th class="num">Meses</th><th class="num">Resultado neto</th><th class="num">Rend. anual</th></tr></thead><tbody>`;
+  for(const y of aniosFin()){
+    const p=finDatos.pyg_mensual.filter(m=>m.mes.startsWith(y)), n=sumaFin(p,m=>m.neto);
+    h+=`<tr${y===finAnio?' class="mesActual"':''}><td>${y}</td><td class="num">${p.length}</td><td class="num">${dinero0(n)}</td><td class="num">${pctFin(p.length?n/p.length*12/inv.base:null)}</td></tr>`;
+  }
+  h+=`</tbody></table><p class="nota-ayuda">Rendimiento anual = resultado neto promedio del año × 12, dividido entre la inversión base. Los años incompletos se anualizan.</p>`;
+  return h;
+}
+
 /* ================== NAVEGACIÓN ================== */
 function irA(v){
   const vistasCalendario=["cal","lleg","huecos","stats","ajustes"];
@@ -1588,11 +1787,12 @@ function irA(v){
   if(v==="maleta") verMaleta();
   if(v==="prov") verProveedores();
   if(v==="mant") verMantenimiento();
+  if(v==="fin") verFinanzas();
 }
 function pintarTodo(){
   const activa=document.querySelector("nav button.activo");
   const v=activa?activa.dataset.v:"cal";
-  if(v==="ajustes"||v==="stock"||v==="compras"||v==="maleta"||v==="prov"||v==="mant") return; // no repintar estas vistas por una sincronización de calendario
+  if(v==="ajustes"||v==="stock"||v==="compras"||v==="maleta"||v==="prov"||v==="mant"||v==="fin") return; // no repintar estas vistas por una sincronización de calendario
   irA(v);
 }
 function toast(m){
@@ -1610,6 +1810,7 @@ else{
   sincronizar(false);
 }
 document.getElementById("quienSoy").textContent = usuario || "¿Quién eres?";
+actualizarNavFin();
 if(!usuario) setTimeout(abrirCambiarUsuario, 400);
 </script>
 </body>
