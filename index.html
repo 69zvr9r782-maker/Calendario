@@ -56,7 +56,7 @@
   .etq.hueco{background:#fff4d6; color:#8a6d00;}
   h3.secc{font-size:13px; color:var(--gris); text-transform:uppercase; letter-spacing:.5px; margin:16px 4px 6px;}
   .vacio{color:var(--gris); font-size:13.5px; text-align:center; padding:18px 6px;}
-  /* Stats */
+  /* Tablas */
   table.stats{width:100%; border-collapse:collapse; font-size:13.5px;}
   table.stats th{text-align:left; color:var(--gris); font-size:11.5px; padding:6px 4px; border-bottom:1px solid #e8edf2;}
   table.stats td{padding:8px 4px; border-bottom:1px solid #f0f3f6;}
@@ -191,45 +191,6 @@
     </div>
   </section>
 
-  <!-- VISTA STATS -->
-  <section id="v-stats" style="display:none">
-    <div class="carta">
-      <div class="segmento">
-        <button id="segMes" class="activo" onclick="modoStats('mes')">Mes</button>
-        <button id="segAnio" onclick="modoStats('anio')">Año</button>
-      </div>
-      <div id="statsMes">
-        <div class="barraMes">
-          <button onclick="cambiarMesStats(-1)">‹</button>
-          <b id="tituloMesStats"></b>
-          <button onclick="cambiarMesStats(1)">›</button>
-        </div>
-        <table class="stats">
-          <thead><tr><th>Apartamento</th><th>Noches</th><th>Ocupación</th><th>Ingresos</th></tr></thead>
-          <tbody id="cuerpoStats"></tbody>
-        </table>
-        <p class="nota-ayuda">Los ingresos se capturan tocando una reserva en el calendario. Se cuentan en el mes de la llegada y se guardan en este teléfono.</p>
-      </div>
-      <div id="statsAnio" style="display:none">
-        <div class="barraMes">
-          <button onclick="cambiarAnioStats(-1)">‹</button>
-          <b id="tituloAnioStats"></b>
-          <button onclick="cambiarAnioStats(1)">›</button>
-        </div>
-        <table class="stats">
-          <thead><tr><th>Apartamento</th><th>Noches</th><th>Ocupación*</th><th>Ingresos</th></tr></thead>
-          <tbody id="cuerpoStatsAnio"></tbody>
-        </table>
-        <h3 class="secc">Mes a mes</h3>
-        <table class="stats">
-          <thead><tr><th>Mes</th><th>Noches</th><th>Ocupación</th><th>Ingresos</th></tr></thead>
-          <tbody id="cuerpoStatsMeses"></tbody>
-        </table>
-        <p class="nota-ayuda" id="notaAnio"></p>
-      </div>
-    </div>
-  </section>
-
   <!-- VISTA AJUSTES -->
   <section id="v-ajustes" style="display:none">
     <div class="carta">
@@ -352,7 +313,6 @@
   <button data-v="cal" class="activo" onclick="irA('cal')"><span class="ico">📅</span>Calend.</button>
   <button data-v="lleg" onclick="irA('lleg')"><span class="ico">🧳</span>Llegadas</button>
   <button data-v="huecos" onclick="irA('huecos')"><span class="ico">✨</span>Huecos</button>
-  <button data-v="stats" onclick="irA('stats')"><span class="ico">📊</span>Stats</button>
   <button data-v="stock" onclick="irA('stock')"><span class="ico">🧴</span>Inventarios</button>
   <button data-v="compras" onclick="irA('compras')"><span class="ico">🛒</span>Compras</button>
   <button data-v="maleta" onclick="irA('maleta')"><span class="ico">🎒</span>Maleta</button>
@@ -373,9 +333,6 @@ const COLORES = ["var(--apt1)","var(--apt2)","var(--apt3)"];
 let cfg = null;          // {apts:[{nombre,url}], directa:""}
 let eventos = [];        // {apt:0-2|-1, ini:"YYYY-MM-DD", fin:"YYYY-MM-DD", tipo:"res"|"blq"|"dir", titulo, uid}
 let mesVista = hoyStr().slice(0,7);
-let mesStats = hoyStr().slice(0,7);
-let anioStats = new Date().getFullYear();
-let statsModo = "mes";
 const LS = { cfg:"str_cfg", cache:"str_cache", extras:"str_extras" };
 
 function hoyStr(){ const d=new Date(); return fmt(d); }
@@ -644,8 +601,8 @@ function abrirDia(f){
       if(e.tipo==="blq"){
         extra=`<div><button class="btn sec" style="margin-top:6px;padding:8px" onclick="abrirFormDirecta(${i},'${e.ini}','${e.fin}',true)">🏷️ Etiquetar este bloqueo</button></div>`;
       } else {
-        extra=`<small style="color:var(--gris)">${ex.ingreso?("💵 "+Number(ex.ingreso).toLocaleString("es")):"Sin ingreso capturado"}${ex.nota?(" · 📝 "+ex.nota):""}</small>
-               <div><button class="btn sec" style="margin-top:6px;padding:8px" onclick="editarExtra('${e.uid}')">✏️ Ingreso / nota</button></div>`;
+        extra=`${ex.nota?`<small style="color:var(--gris)">📝 ${esc(ex.nota)}</small>`:""}
+               <div><button class="btn sec" style="margin-top:6px;padding:8px" onclick="editarExtra('${e.uid}')">📝 Nota</button></div>`;
       }
     } else {
       estado="Libre esta noche";
@@ -661,10 +618,9 @@ function abrirDia(f){
 function cerrarHoja(){ document.getElementById("velo").style.display="none"; document.getElementById("hoja").classList.remove("abierta"); }
 function editarExtra(uid){
   const ex=extras()[uid]||{};
-  const ing=prompt("Ingreso de esta reserva (solo número):", ex.ingreso||"");
-  if(ing===null) return;
   const nota=prompt("Nota (hora de llegada, peticiones…):", ex.nota||"");
-  setExtra(uid,{ingreso:ing.trim(), nota:(nota||"").trim()});
+  if(nota===null) return;
+  setExtra(uid,{...ex, nota:nota.trim()});
   cerrarHoja(); pintarTodo(); toast("Guardado");
 }
 
@@ -768,102 +724,6 @@ function pintarHuecos(){
   });
   document.getElementById("listaHuecos").innerHTML=h||`<div class="vacio">¡Sin huecos! Todo reservado 🎉</div>`;
 }
-
-/* ================== VISTA: STATS ================== */
-function modoStats(m){
-  statsModo=m;
-  document.getElementById("segMes").classList.toggle("activo",m==="mes");
-  document.getElementById("segAnio").classList.toggle("activo",m==="anio");
-  document.getElementById("statsMes").style.display=m==="mes"?"":"none";
-  document.getElementById("statsAnio").style.display=m==="anio"?"":"none";
-  pintarStats();
-}
-function pintarStats(){ if(statsModo==="anio") pintarStatsAnio(); else pintarStatsMes(); }
-
-function pintarStatsMes(){
-  const [y,m]=mesStats.split("-").map(Number);
-  document.getElementById("tituloMesStats").textContent=MESES[m-1]+" "+y;
-  const diasMes=new Date(y,m,0).getDate();
-  const ini=mesStats+"-01", fin=fmt(new Date(y,m,1));
-  let html="", totN=0, totI=0;
-  cfg.apts.forEach((a,i)=>{
-    let noches=0;
-    for(let d=1;d<=diasMes;d++){
-      const f=mesStats+"-"+String(d).padStart(2,"0");
-      const e=nocheOcupada(i,f);
-      if(e&&e.tipo!=="blq") noches++;
-    }
-    let ingreso=0;
-    eventos.filter(e=>e.apt===i&&e.tipo!=="blq"&&e.ini>=ini&&e.ini<fin).forEach(e=>{
-      const ex=extras()[e.uid]; if(ex&&ex.ingreso) ingreso+=Number(ex.ingreso)||0;
-    });
-    totN+=noches; totI+=ingreso;
-    html+=`<tr><td><span class="puntito" style="background:${COLORES[i]}"></span> ${a.nombre}</td>
-           <td>${noches}</td><td>${Math.round(noches/diasMes*100)}%</td>
-           <td>${ingreso?ingreso.toLocaleString("es"):"—"}</td></tr>`;
-  });
-  html+=`<tr><td>Total</td><td>${totN}</td><td>${Math.round(totN/(diasMes*cfg.apts.length)*100)}%</td><td>${totI?totI.toLocaleString("es"):"—"}</td></tr>`;
-  document.getElementById("cuerpoStats").innerHTML=html;
-}
-function cambiarMesStats(n){
-  let [y,m]=mesStats.split("-").map(Number); m+=n;
-  if(m<1){m=12;y--;} if(m>12){m=1;y++;}
-  mesStats=y+"-"+String(m).padStart(2,"0"); pintarStatsMes();
-}
-
-/* ---- Año completo: ocupación hasta hoy + noches e ingresos de todo el año ---- */
-function pintarStatsAnio(){
-  const y=anioStats, hoy=hoyStr(), nA=cfg.apts.length;
-  document.getElementById("tituloAnioStats").textContent=y;
-  const noches=cfg.apts.map(()=>Array(12).fill(0));      // noches por apto y mes (todo el año)
-  const ingresos=cfg.apts.map(()=>Array(12).fill(0));    // ingresos por apto y mes de llegada
-  const nochesYTD=Array(nA).fill(0);                     // noches ocupadas del 1 ene hasta hoy
-  const diasPorMes=[]; let diasYTD=0;
-  for(let m=1;m<=12;m++){
-    const diasMes=new Date(y,m,0).getDate(); diasPorMes.push(diasMes);
-    for(let d=1;d<=diasMes;d++){
-      const f=y+"-"+String(m).padStart(2,"0")+"-"+String(d).padStart(2,"0");
-      if(f<=hoy) diasYTD++;
-      for(let i=0;i<nA;i++){
-        const e=nocheOcupada(i,f);
-        if(e&&e.tipo!=="blq"){ noches[i][m-1]++; if(f<=hoy) nochesYTD[i]++; }
-      }
-    }
-  }
-  const iniAnio=y+"-01-01", finAnio=(y+1)+"-01-01", ex=extras();
-  for(let i=0;i<nA;i++){
-    eventos.filter(e=>e.apt===i&&e.tipo!=="blq"&&e.ini>=iniAnio&&e.ini<finAnio).forEach(e=>{
-      const x=ex[e.uid]; if(x&&x.ingreso) ingresos[i][Number(e.ini.slice(5,7))-1]+=Number(x.ingreso)||0;
-    });
-  }
-  const pct=(a,b)=> b? Math.round(a/b*100)+"%" : "—";
-  const dinero=v=> v? v.toLocaleString("es") : "—";
-  // Tabla por apartamento
-  let html="", tN=0, tY=0, tI=0;
-  cfg.apts.forEach((a,i)=>{
-    const nT=noches[i].reduce((s,v)=>s+v,0);
-    const iT=ingresos[i].reduce((s,v)=>s+v,0);
-    tN+=nT; tY+=nochesYTD[i]; tI+=iT;
-    html+=`<tr><td><span class="puntito" style="background:${COLORES[i]}"></span> ${a.nombre}</td>
-           <td>${nT}</td><td>${pct(nochesYTD[i],diasYTD)}</td><td>${dinero(iT)}</td></tr>`;
-  });
-  html+=`<tr><td>Total</td><td>${tN}</td><td>${pct(tY,diasYTD*nA)}</td><td>${dinero(tI)}</td></tr>`;
-  document.getElementById("cuerpoStatsAnio").innerHTML=html;
-  // Tabla mes a mes (todos los apartamentos juntos)
-  const mesHoy=hoy.slice(0,7);
-  let hm="";
-  for(let m=0;m<12;m++){
-    const clave=y+"-"+String(m+1).padStart(2,"0");
-    const nM=noches.reduce((s,fila)=>s+fila[m],0);
-    const iM=ingresos.reduce((s,fila)=>s+fila[m],0);
-    hm+=`<tr class="${clave===mesHoy?"mesActual":""}"><td style="text-transform:capitalize">${MESES[m].slice(0,3)}</td>
-         <td>${nM||"—"}</td><td>${nM?pct(nM,diasPorMes[m]*nA):"—"}</td><td>${dinero(iM)}</td></tr>`;
-  }
-  hm+=`<tr><td>Total</td><td>${tN}</td><td>${pct(tY,diasYTD*nA)}*</td><td>${dinero(tI)}</td></tr>`;
-  document.getElementById("cuerpoStatsMeses").innerHTML=hm;
-  document.getElementById("notaAnio").textContent="* Ocupación calculada del 1 de enero hasta hoy (noches ocupadas ÷ noches transcurridas). «Noches» e «Ingresos» cubren todo el año e incluyen reservas futuras. Los ingresos se cuentan en el mes de la llegada y se guardan en este teléfono.";
-}
-function cambiarAnioStats(n){ anioStats+=n; pintarStatsAnio(); }
 
 /* ================== VISTA: AJUSTES ================== */
 function pintarAjustes(){
@@ -1771,7 +1631,7 @@ function finInversion(){
 
 /* ================== NAVEGACIÓN ================== */
 function irA(v){
-  const vistasCalendario=["cal","lleg","huecos","stats","ajustes"];
+  const vistasCalendario=["cal","lleg","huecos","ajustes"];
   if(vistasCalendario.includes(v) && (!cfg||!cfg.apts||!cfg.apts.length)) v="setup";
   document.querySelectorAll("main > section").forEach(s=>s.style.display="none");
   document.getElementById("v-"+v).style.display="";
@@ -1779,7 +1639,6 @@ function irA(v){
   if(v==="cal") pintarCalendario();
   if(v==="lleg") pintarLlegadas();
   if(v==="huecos") pintarHuecos();
-  if(v==="stats") pintarStats();
   if(v==="ajustes") pintarAjustes();
   if(v==="setup") pintarSetup();
   if(v==="stock") verStock();
